@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { purchases, materials, stockMovements } from "@/db/schema";
+import { nextDocumentNumber } from "@/lib/documents";
 import { eq, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
       const d = body.data || {};
       const items: PurchaseItem[] = Array.isArray(d.items) ? d.items : [];
       const subtotal = items.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.unitCost || 0), 0);
-      const number = `CMP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+      const number = await nextDocumentNumber("purchase");
       const [row] = await db
         .insert(purchases)
         .values({

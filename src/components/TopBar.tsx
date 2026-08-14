@@ -53,7 +53,7 @@ export function TopBar() {
           <NotificationBell />
           <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5"><span className="text-sm">👑</span><span className="text-sm font-medium text-slate-700">Operador</span></div>
           <Link href="/orcamentos/new" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 px-4 text-sm font-semibold text-white shadow-sm shadow-cyan-500/25 transition-all hover:from-cyan-400 hover:to-blue-400"><span>＋</span> Novo pedido</Link>
-          <Link href="/api-integracoes" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"><span>💬</span> WhatsApp</Link>
+          <Link href="/comunicacoes" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"><span>📡</span> Comunicação</Link>
         </div>
       </div>
     </header>

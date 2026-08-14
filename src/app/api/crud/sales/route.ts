@@ -1,5 +1,6 @@
 import { db } from "@/lib/crud";
 import { sales, products, productMaterials, materials, stockMovements } from "@/db/schema";
+import { nextDocumentNumber } from "@/lib/documents";
 import { eq, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +21,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "JSON inválido" }, { status: 400 });
   }
   try {
-    const seq = Date.now().toString().slice(-6);
-    const number = `PDV-${new Date().getFullYear()}-${seq}`;
+    const number = await nextDocumentNumber("sale");
     const items: SaleItem[] = Array.isArray(body.items) ? body.items : [];
 
     const [row] = await db

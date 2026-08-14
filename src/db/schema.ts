@@ -9,6 +9,7 @@ import {
   jsonb,
   pgEnum,
   date,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /* ------------------------------------------------------------------ */
@@ -35,6 +36,168 @@ export const notifications = pgTable("notifications", {
   readAt: timestamp("read_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
+
+/* ------------------------------------------------------------------ */
+/*  CENTRAL DE COMUNICAÇÃO                                             */
+/*  Canais, templates, regras, consentimento, outbox e inbox          */
+/*  Segredos ficam somente em variáveis de ambiente / cofre externo.  */
+/* ------------------------------------------------------------------ */
+export const communicationChannelEnum = pgEnum("communication_channel", [
+  "whatsapp",
+  "email",
+]);
+export const communicationKindEnum = pgEnum("communication_kind", [
+  "transactional",
+  "marketing",
+  "internal",
+]);
+export const communicationStatusEnum = pgEnum("communication_status", [
+  "draft",
+  "queued",
+  "processing",
+  "sent",
+  "delivered",
+  "read",
+  "received",
+  "failed",
+  "cancelled",
+  "suppressed",
+]);
+
+export const communicationChannels = pgTable("communication_channels", {
+  id: serial("id").primaryKey(),
+  channel: communicationChannelEnum("channel").notNull(),
+  name: text("name").notNull(),
+  provider: text("provider").notNull(), // baileys, resend
+  enabled: boolean("enabled").default(false).notNull(),
+  fromName: text("from_name"),
+  fromAddress: text("from_address"),
+  fromPhone: text("from_phone"),
+  /** dados não secretos: estado, QR temporário, última conexão, diagnóstico */
+  runtime: jsonb("runtime"),
+  config: jsonb("config"),
+  lastHealthAt: timestamp("last_health_at", { mode: "date" }),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const messageTemplates = pgTable("message_templates", {
+  id: serial("id").primaryKey(),
+  channel: communicationChannelEnum("channel").notNull(),
+  kind: communicationKindEnum("kind").default("transactional").notNull(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // quote, order, art, delivery, finance, post_sale
+  subject: text("subject"), // e-mail
+  body: text("body").notNull(), // WhatsApp texto / e-mail HTML
+  previewData: jsonb("preview_data"),
+  variables: jsonb("variables"),
+  version: integer("version").default(1).notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const communicationRules = pgTable("communication_rules", {
+  id: serial("id").primaryKey(),
+  eventType: text("event_type").notNull(), // quote.sent, order.confirmed, art.requested...
+  channel: communicationChannelEnum("channel").notNull(),
+  templateId: integer("template_id").references(() => messageTemplates.id, {
+    onDelete: "set null",
+  }),
+  enabled: boolean("enabled").default(true).notNull(),
+  delaySeconds: integer("delay_seconds").default(0).notNull(),
+  requireConsent: boolean("require_consent").default(true).notNull(),
+  requireHumanApproval: boolean("require_human_approval").default(false).notNull(),
+  conditions: jsonb("conditions"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const customerConsents = pgTable("customer_consents", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "cascade",
+  }),
+  channel: communicationChannelEnum("channel").notNull(),
+  kind: communicationKindEnum("kind").default("transactional").notNull(),
+  status: text("status").default("granted").notNull(), // granted, revoked, unknown
+  source: text("source").default("manual"),
+  grantedAt: timestamp("granted_at", { mode: "date" }).defaultNow(),
+  revokedAt: timestamp("revoked_at", { mode: "date" }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const communicationOutbox = pgTable("communication_outbox", {
+  id: serial("id").primaryKey(),
+  channel: communicationChannelEnum("channel").notNull(),
+  kind: communicationKindEnum("kind").default("transactional").notNull(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  templateId: integer("template_id").references(() => messageTemplates.id, {
+    onDelete: "set null",
+  }),
+  templateVersion: integer("template_version"),
+  eventType: text("event_type"),
+  recipient: text("recipient").notNull(),
+  subject: text("subject"),
+  renderedBody: text("rendered_body").notNull(),
+  payload: jsonb("payload"),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  status: communicationStatusEnum("status").default("queued").notNull(),
+  scheduledAt: timestamp("scheduled_at", { mode: "date" }).defaultNow().notNull(),
+  processingAt: timestamp("processing_at", { mode: "date" }),
+  sentAt: timestamp("sent_at", { mode: "date" }),
+  deliveredAt: timestamp("delivered_at", { mode: "date" }),
+  providerMessageId: text("provider_message_id"),
+  attempts: integer("attempts").default(0).notNull(),
+  maxAttempts: integer("max_attempts").default(5).notNull(),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const communicationEvents = pgTable("communication_events", {
+  id: serial("id").primaryKey(),
+  outboxId: integer("outbox_id").references(() => communicationOutbox.id, {
+    onDelete: "cascade",
+  }),
+  channel: communicationChannelEnum("channel").notNull(),
+  type: text("type").notNull(), // queued, sent, delivered, read, failed, received
+  payload: jsonb("payload"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const communicationInbox = pgTable("communication_inbox", {
+  id: serial("id").primaryKey(),
+  channel: communicationChannelEnum("channel").notNull(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  sender: text("sender").notNull(),
+  recipient: text("recipient"),
+  providerMessageId: text("provider_message_id"),
+  body: text("body"),
+  payload: jsonb("payload"),
+  readAt: timestamp("read_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/*  NUMERAÇÃO ATÔMICA DE DOCUMENTOS                                   */
+/* ------------------------------------------------------------------ */
+export const documentCounters = pgTable("document_counters", {
+  id: serial("id").primaryKey(),
+  documentType: text("document_type").notNull(), // quote, order, sale, purchase
+  year: integer("year").notNull(),
+  current: integer("current").default(0).notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("document_counters_type_year_idx").on(table.documentType, table.year),
+]);
 
 /* ------------------------------------------------------------------ */
 /*  CATEGORIAS GENÉRICAS (reutilizáveis por módulo)                    */

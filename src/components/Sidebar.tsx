@@ -62,8 +62,9 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Integrações & Sistema",
+    title: "Comunicação & Sistema",
     items: [
+      { label: "Central de Comunicação", href: "/comunicacoes", icon: "📡" },
       { label: "Integrações", href: "/api-integracoes", icon: "🔌" },
       { label: "Painel de controle", href: "/configuracoes", icon: "⚙️" },
     ],

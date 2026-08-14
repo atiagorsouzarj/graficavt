@@ -69,6 +69,23 @@ export default async function ConfigPage() {
     card_fee_debit: "1.99",
     card_fee_credit: "4.99",
     pricing_rounding_step: "0.01",
+    // Documentos transacionais
+    document_number_mode: "annual",
+    document_number_width: "4",
+    document_prefix_quote: "ORC",
+    document_prefix_order: "PED",
+    document_prefix_sale: "PDV",
+    document_prefix_purchase: "CMP",
+    // Política de comunicação
+    communication_engine_enabled: "false",
+    communication_require_consent: "true",
+    communication_default_human_approval: "false",
+    communication_marketing_enabled: "false",
+    communication_demo_mode: "true",
+    communication_business_hours_start: "08:00",
+    communication_business_hours_end: "18:00",
+    communication_timezone: "America/Sao_Paulo",
+    communication_whatsapp_daily_limit: "30",
   };
   for (const k of Object.keys(defaults)) {
     if (values[k] === undefined) values[k] = defaults[k];

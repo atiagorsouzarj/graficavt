@@ -28,6 +28,13 @@ import {
   purchases,
   productionSchedules,
   deliveries,
+  communicationChannels,
+  messageTemplates,
+  communicationRules,
+  communicationOutbox,
+  communicationInbox,
+  customerConsents,
+  settings,
 } from "@/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 
@@ -112,6 +119,21 @@ export async function getDeliveryData() {
     db.select().from(customers).orderBy(asc(customers.name)),
   ]);
   return { deliveries: deliveryList, orders: ordersList, customers: customersList };
+}
+
+export async function getCommunicationData() {
+  const [channels, templates, rules, outbox, inbox, consents, customerList, policyRows] = await Promise.all([
+    db.select().from(communicationChannels).orderBy(asc(communicationChannels.id)),
+    db.select().from(messageTemplates).orderBy(asc(messageTemplates.channel), asc(messageTemplates.category), asc(messageTemplates.name)),
+    db.select().from(communicationRules).orderBy(asc(communicationRules.eventType)),
+    db.select().from(communicationOutbox).orderBy(desc(communicationOutbox.createdAt)).limit(100),
+    db.select().from(communicationInbox).orderBy(desc(communicationInbox.createdAt)).limit(100),
+    db.select().from(customerConsents).orderBy(desc(customerConsents.createdAt)).limit(100),
+    db.select().from(customers).orderBy(asc(customers.name)),
+    db.select().from(settings).where(eq(settings.category, "comunicacao")),
+  ]);
+  const policy = Object.fromEntries(policyRows.map((row) => [row.key, row.value || ""]));
+  return { channels, templates, rules, outbox, inbox, consents, customers: customerList, policy };
 }
 
 export async function getDashboardStats() {

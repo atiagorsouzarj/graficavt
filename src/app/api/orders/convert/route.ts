@@ -1,5 +1,7 @@
 import { db } from "@/db";
 import { orders, quotes, quoteItems, deliveries } from "@/db/schema";
+import { nextDocumentNumber } from "@/lib/documents";
+import { enqueueCommunicationEvent } from "@/lib/communication";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +22,7 @@ export async function POST(req: Request) {
     if (existing) return Response.json({ ok: true, order: existing, existing: true });
 
     const items = await db.select().from(quoteItems).where(eq(quoteItems.quoteId, quoteId));
-    const number = `PED-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+    const number = await nextDocumentNumber("order");
     const [order] = await db
       .insert(orders)
       .values({
@@ -49,6 +51,12 @@ export async function POST(req: Request) {
       status: "aguardando",
       addressSnapshot: null,
       notes: "Gerada automaticamente ao converter orçamento em pedido.",
+    });
+    await enqueueCommunicationEvent({
+      eventType: "order.confirmed",
+      eventId: order.id,
+      customerId: order.customerId,
+      context: { pedido: { numero: order.number, total: String(order.total), prazo: order.dueDate || "", producao_status: order.productionStatus } },
     });
 
     return Response.json({ ok: true, order, existing: false });

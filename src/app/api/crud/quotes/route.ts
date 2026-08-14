@@ -1,5 +1,7 @@
 import { db } from "@/lib/crud";
 import { quotes, quoteItems, kanbanCards, customers } from "@/db/schema";
+import { nextDocumentNumber } from "@/lib/documents";
+import { enqueueCommunicationEvent } from "@/lib/communication";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +27,7 @@ export async function POST(req: Request) {
 
   try {
     if (op === "create") {
-      const count = await db.select().from(quotes);
-      const number = `ORC-${new Date().getFullYear()}-${String(
-        count.length + 1
-      ).padStart(4, "0")}`;
+      const number = await nextDocumentNumber("quote");
       const [row] = await db
         .insert(quotes)
         .values({
@@ -46,6 +45,15 @@ export async function POST(req: Request) {
         .returning();
       await saveItems(row.id, d.items || []);
       await syncProductionCard(row.id, d.status || "rascunho", row.customerId, row.number, d.items || []);
+      if ((d.status || "rascunho") === "enviado") {
+        const itemsText = (d.items || []).map((item: Item) => `• ${item.description}\n  Qtd: ${item.quantity} · R$ ${Number(item.total || 0).toFixed(2).replace(".", ",")}`).join("\n");
+        await enqueueCommunicationEvent({
+          eventType: "quote.sent",
+          eventId: row.id,
+          customerId: row.customerId,
+          context: { orcamento: { numero: row.number, total: `R$ ${Number(row.total || 0).toFixed(2).replace(".", ",")}`, validade: row.validUntil || "", pagamento: row.paymentMethod || "A definir", itens: itemsText || "Itens a definir", link: `/orcamentos/${row.id}` } },
+        });
+      }
       return Response.json({ ok: true, row });
     }
     if (op === "update") {
@@ -68,6 +76,15 @@ export async function POST(req: Request) {
       const [updated] = await db.select().from(quotes).where(eq(quotes.id, id));
       if (updated) {
         await syncProductionCard(id, d.status || "rascunho", updated.customerId, updated.number, d.items || []);
+        if ((d.status || "rascunho") === "enviado") {
+          const itemsText = (d.items || []).map((item: Item) => `• ${item.description}\n  Qtd: ${item.quantity} · R$ ${Number(item.total || 0).toFixed(2).replace(".", ",")}`).join("\n");
+          await enqueueCommunicationEvent({
+            eventType: "quote.sent",
+            eventId: updated.id,
+            customerId: updated.customerId,
+            context: { orcamento: { numero: updated.number, total: `R$ ${Number(updated.total || 0).toFixed(2).replace(".", ",")}`, validade: updated.validUntil || "", pagamento: updated.paymentMethod || "A definir", itens: itemsText || "Itens a definir", link: `/orcamentos/${updated.id}` } },
+          });
+        }
       }
       return Response.json({ ok: true });
     }

@@ -1,6 +1,6 @@
 {
   "name": "grafcenter",
-  "version": "1.3.0",
+  "version": "1.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,13 +12,21 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "clsx": "^2.1.1",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
     "next": "16.2.6",
+    "nodemailer": "^9.0.5",
     "pg": "8.20.0",
+    "pino": "^10.3.1",
+    "pm2": "^7.0.3",
+    "qrcode": "^1.5.4",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "resend": "^6.20.0",
+    "svix": "^1.99.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.17",
