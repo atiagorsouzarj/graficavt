@@ -40,6 +40,43 @@ export function renderTemplate(
   });
 }
 
+export type InteractiveButton = {
+  type: "url" | "reply" | "list";
+  label: string;
+  url?: string;
+  id?: string;
+  sections?: { title: string; rows: { title: string; description?: string; id: string }[] }[];
+};
+
+export type InteractiveTemplate = {
+  footer?: string;
+  buttons?: InteractiveButton[];
+};
+
+/** Renderiza ações do template preservando IDs para o bot/inbox. */
+export function renderInteractiveTemplate(
+  interactive: unknown,
+  context: TemplateContext
+): InteractiveTemplate | null {
+  if (!interactive || typeof interactive !== "object") return null;
+  const raw = interactive as InteractiveTemplate;
+  const buttons = (raw.buttons || []).map((button) => ({
+    ...button,
+    label: renderTemplate(button.label || "", context),
+    url: button.url ? renderTemplate(button.url, context) : undefined,
+    id: button.id ? renderTemplate(button.id, context) : undefined,
+    sections: button.sections?.map((section) => ({
+      title: renderTemplate(section.title || "", context),
+      rows: section.rows.map((row) => ({
+        title: renderTemplate(row.title || "", context),
+        description: row.description ? renderTemplate(row.description, context) : undefined,
+        id: renderTemplate(row.id || "", context),
+      })),
+    })),
+  }));
+  return { footer: raw.footer ? renderTemplate(raw.footer, context) : undefined, buttons };
+}
+
 export function extractTemplateVariables(source: string): string[] {
   const matches = String(source || "").matchAll(/{{\s*([a-zA-Z0-9_.]+)\s*}}/g);
   return Array.from(new Set(Array.from(matches, (match) => match[1])));

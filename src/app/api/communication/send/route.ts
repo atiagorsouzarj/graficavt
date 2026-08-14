@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { communicationChannels, customers } from "@/db/schema";
+import { communicationChannels, customers, settings } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { enqueueManualMessage } from "@/lib/communication";
 import { getPricingDefaults } from "@/lib/settings";
@@ -13,6 +13,10 @@ export async function POST(req: Request) {
   const customerId = body.customerId ? Number(body.customerId) : null;
   if (!channel || !templateId) return Response.json({ error: "Canal e template são obrigatórios" }, { status: 400 });
 
+  const [engine] = await db.select().from(settings).where(eq(settings.key, "communication_engine_enabled"));
+  if (engine?.value !== "true") {
+    return Response.json({ error: "Motor transacional desligado. Ative em Painel de Controle → Política de Comunicação ou use Simular localmente." }, { status: 409 });
+  }
   const [activeChannel] = await db
     .select()
     .from(communicationChannels)

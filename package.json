@@ -1,6 +1,6 @@
 {
   "name": "grafcenter",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "seed": "node seed.mjs",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "communication:check": "node scripts/check-communication-production.mjs",
+    "communication:whatsapp": "node scripts/whatsapp-gateway.mjs",
+    "communication:email": "node scripts/email-worker.mjs",
+    "production:all": "pm2 start ecosystem.config.cjs --update-env"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",

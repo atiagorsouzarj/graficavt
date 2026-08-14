@@ -91,6 +91,8 @@ export const messageTemplates = pgTable("message_templates", {
   category: text("category").notNull(), // quote, order, art, delivery, finance, post_sale
   subject: text("subject"), // e-mail
   body: text("body").notNull(), // WhatsApp texto / e-mail HTML
+  /** WhatsApp: botões, URL/quick_reply/lista. E-mail ignora este campo. */
+  interactive: jsonb("interactive"),
   previewData: jsonb("preview_data"),
   variables: jsonb("variables"),
   version: integer("version").default(1).notNull(),
@@ -145,6 +147,8 @@ export const communicationOutbox = pgTable("communication_outbox", {
   recipient: text("recipient").notNull(),
   subject: text("subject"),
   renderedBody: text("rendered_body").notNull(),
+  /** snapshot renderizado da mensagem interativa (botões/CTA) */
+  interactive: jsonb("interactive"),
   payload: jsonb("payload"),
   idempotencyKey: text("idempotency_key").notNull().unique(),
   status: communicationStatusEnum("status").default("queued").notNull(),

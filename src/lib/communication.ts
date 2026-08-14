@@ -13,7 +13,7 @@ import {
   settings,
 } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { renderTemplate, type TemplateContext } from "@/lib/communication-template";
+import { renderInteractiveTemplate, renderTemplate, type TemplateContext } from "@/lib/communication-template";
 import { getPricingDefaults } from "@/lib/settings";
 
 export type CommunicationEventInput = {
@@ -24,6 +24,16 @@ export type CommunicationEventInput = {
 };
 
 const firstName = (name?: string | null) => String(name || "Cliente").trim().split(/\s+/)[0] || "Cliente";
+
+function mergeContext(base: TemplateContext, override: TemplateContext): TemplateContext {
+  const merged: TemplateContext = { ...base };
+  for (const [key, value] of Object.entries(override || {})) {
+    if (value && typeof value === "object" && !Array.isArray(value) && merged[key] && typeof merged[key] === "object" && !Array.isArray(merged[key])) {
+      merged[key] = mergeContext(merged[key] as TemplateContext, value as TemplateContext);
+    } else merged[key] = value;
+  }
+  return merged;
+}
 
 function withinBusinessHours(date: Date, start: string, end: string, timezone: string) {
   try {
@@ -67,6 +77,7 @@ export async function enqueueCommunicationEvent(input: CommunicationEventInput) 
   const engineEnabled = policy.get("communication_engine_enabled") === "true";
   if (!engineEnabled) return { queued: 0, skipped: "engine_disabled" };
   const globalConsent = policy.get("communication_require_consent") !== "false";
+  const globalHumanApproval = policy.get("communication_default_human_approval") === "true";
   const marketingEnabled = policy.get("communication_marketing_enabled") === "true";
   const businessStart = policy.get("communication_business_hours_start") || "08:00";
   const businessEnd = policy.get("communication_business_hours_end") || "18:00";
@@ -133,8 +144,10 @@ export async function enqueueCommunicationEvent(input: CommunicationEventInput) 
 
     const recipient = rule.channel === "email" ? target.email : normalizedWhatsApp(target.whatsapp || target.phone);
     if (!recipient) continue;
-    const renderedBody = renderTemplate(activeTemplate.body, baseContext, { html: rule.channel === "email" });
-    const subject = activeTemplate.subject ? renderTemplate(activeTemplate.subject, baseContext) : null;
+    const context = mergeContext((activeTemplate.previewData || {}) as TemplateContext, baseContext);
+    const renderedBody = renderTemplate(activeTemplate.body, context, { html: rule.channel === "email" });
+    const interactive = rule.channel === "whatsapp" ? renderInteractiveTemplate(activeTemplate.interactive, context) : null;
+    const subject = activeTemplate.subject ? renderTemplate(activeTemplate.subject, context) : null;
     const idempotencyKey = `${input.eventType}:${rule.id}:${target.id}:${input.eventId}:${activeTemplate.version}:${rule.channel}`;
     const scheduledAt = nextBusinessSchedule(
       new Date(Date.now() + Number(rule.delaySeconds || 0) * 1000),
@@ -155,19 +168,20 @@ export async function enqueueCommunicationEvent(input: CommunicationEventInput) 
           recipient,
           subject,
           renderedBody,
-          payload: baseContext,
+          interactive,
+          payload: context,
           idempotencyKey,
-          status: rule.requireHumanApproval ? "draft" : "queued",
+          status: (globalHumanApproval || rule.requireHumanApproval) ? "draft" : "queued",
           scheduledAt,
         })
         .returning();
       await db.insert(communicationEvents).values({
         outboxId: outbox.id,
         channel: rule.channel,
-        type: rule.requireHumanApproval ? "draft" : "queued",
+        type: (globalHumanApproval || rule.requireHumanApproval) ? "draft" : "queued",
         payload: { eventType: input.eventType, ruleId: rule.id },
       });
-      if (!rule.requireHumanApproval) {
+      if (!(globalHumanApproval || rule.requireHumanApproval)) {
         await db.insert(notifications).values({
           type: "info",
           title: "Comunicação enfileirada",
@@ -200,8 +214,10 @@ export async function enqueueManualMessage({
 }) {
   const [template] = await db.select().from(messageTemplates).where(eq(messageTemplates.id, templateId));
   if (!template) throw new Error("Template não encontrado");
-  const body = renderTemplate(template.body, context, { html: channel === "email" });
-  const subject = template.subject ? renderTemplate(template.subject, context) : null;
+  const resolved = mergeContext((template.previewData || {}) as TemplateContext, context);
+  const body = renderTemplate(template.body, resolved, { html: channel === "email" });
+  const interactive = channel === "whatsapp" ? renderInteractiveTemplate(template.interactive, resolved) : null;
+  const subject = template.subject ? renderTemplate(template.subject, resolved) : null;
   const idempotencyKey = `manual:${channel}:${template.id}:${recipient}:${Date.now()}`;
   const [outbox] = await db.insert(communicationOutbox).values({
     channel,
@@ -213,7 +229,8 @@ export async function enqueueManualMessage({
     recipient,
     subject,
     renderedBody: body,
-    payload: context,
+    interactive,
+    payload: resolved,
     idempotencyKey,
     status: requireApproval ? "draft" : "queued",
   }).returning();

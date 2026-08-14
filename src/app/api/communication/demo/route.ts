@@ -8,7 +8,7 @@ import {
   settings,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { renderTemplate } from "@/lib/communication-template";
+import { renderInteractiveTemplate, renderTemplate } from "@/lib/communication-template";
 import { getPricingDefaults } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     entrega: body.context?.entrega || { metodo: "Motoboy", instrucao: "Previsão hoje até 18h", rastreio: "", previsao: "Hoje até 18h" },
   };
   const renderedBody = renderTemplate(template.body, context, { html: channel === "email" });
+  const interactive = channel === "whatsapp" ? renderInteractiveTemplate(template.interactive, context) : null;
   const subject = template.subject ? renderTemplate(template.subject, context) : null;
   const [outbox] = await db.insert(communicationOutbox).values({
     channel,
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
     recipient,
     subject,
     renderedBody,
+    interactive,
     payload: context,
     idempotencyKey: `demo:${channel}:${template.id}:${Date.now()}`,
     status: "delivered",
