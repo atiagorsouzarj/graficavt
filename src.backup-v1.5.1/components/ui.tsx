@@ -9,7 +9,6 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { useEffect } from "react";
-import { createPortal } from "react-dom";
 
 /* ---------------- Card ---------------- */
 export function Card({
@@ -273,8 +272,8 @@ export function Modal({
     lg: "max-w-3xl",
     xl: "max-w-5xl",
   };
-  const overlay = (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-900/45 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-3 backdrop-blur-sm sm:p-6">
       <div
         className={cn(
           "animate-in relative flex max-h-[calc(100dvh-1.5rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]",
@@ -292,7 +291,6 @@ export function Modal({
             {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
           </div>
           <button
-            type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
@@ -303,7 +301,6 @@ export function Modal({
       </div>
     </div>
   );
-  return typeof document === "undefined" ? null : createPortal(overlay, document.body);
 }
 
 /* ---------------- Empty state ---------------- */

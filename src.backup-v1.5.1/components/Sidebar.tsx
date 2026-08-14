@@ -133,7 +133,7 @@ export function Sidebar() {
 
       <div className="border-t border-slate-100 px-5 py-3">
         <p className="text-[10px] text-slate-400">
-          GrafCenter <span className="font-semibold text-slate-500">v1.5.3</span>
+          GrafCenter <span className="font-semibold text-slate-500">v1.5.1</span>
         </p>
       </div>
     </>

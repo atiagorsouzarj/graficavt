@@ -43,16 +43,18 @@ body {
 }
 
 /* Animações suaves */
-/*
- * Apenas opacity: transform em um ancestral cria um novo containing block
- * e limitava modais fixed ao container de conteúdo.
- */
-@keyframes fadeInSoft {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-in {
-  animation: fadeInSoft 0.2s ease-out both;
+  animation: fadeInUp 0.28s ease-out both;
 }
 
 /* Impressão: OS e Cupom — mostra SOMENTE o documento, uma página só */

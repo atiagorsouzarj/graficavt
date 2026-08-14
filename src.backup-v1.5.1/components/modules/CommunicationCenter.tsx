@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "@/lib/mutate";
 import { ClientIdentity } from "@/components/ClientIdentity";
 import { SearchCombobox } from "@/components/SearchCombobox";
-import { ReplyModal } from "@/components/modules/ReplyModal";
 import { renderInteractiveTemplate, renderTemplate, TEMPLATE_VARIABLES } from "@/lib/communication-template";
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, PageHeader, Select, Textarea } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -42,9 +41,14 @@ export function CommunicationCenter({ data }: { data: Row }) {
   const [templateModal, setTemplateModal] = useState<Row | "new" | null>(null);
   const [ruleModal, setRuleModal] = useState<Row | "new" | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [replyItem, setReplyItem] = useState<Row | null>(null);
   const { channels = [], templates = [], rules = [], outbox = [], inbox = [], consents = [], customers = [], policy = {} } = data;
   const demoMode = policy.communication_demo_mode === "true";
+
+  useEffect(() => {
+    if (tab !== "channels") return;
+    const id = setInterval(() => router.refresh(), 5000);
+    return () => clearInterval(id);
+  }, [tab, router]);
 
   const stats = useMemo(() => ({
     active: channels.filter((x: Row) => x.enabled).length,
@@ -78,7 +82,7 @@ export function CommunicationCenter({ data }: { data: Row }) {
   }
 
   return <div>
-    <PageHeader eyebrow="Automação & Relacionamento" icon="📡" title="Central de Comunicação" description="WhatsApp Baileys, SMTP/Resend, templates, botões interativos, regras de CRM/ERP e fila auditável." action={<div className="flex gap-2"><Button variant="outline" onClick={() => router.refresh()}>↻ Atualizar status</Button><Link href="/comunicacoes/guia"><Button variant="outline">📘 Guia produção</Button></Link><Button onClick={() => setComposeOpen(true)}>{demoMode ? "🧪 Simular envio" : "＋ Enviar manualmente"}</Button></div>} />
+    <PageHeader eyebrow="Automação & Relacionamento" icon="📡" title="Central de Comunicação" description="WhatsApp Baileys, SMTP/Resend, templates, botões interativos, regras de CRM/ERP e fila auditável." action={<div className="flex gap-2"><Link href="/comunicacoes/guia"><Button variant="outline">📘 Guia produção</Button></Link><Button onClick={() => setComposeOpen(true)}>{demoMode ? "🧪 Simular envio" : "＋ Enviar manualmente"}</Button></div>} />
     {demoMode && <div className="mb-5 flex gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-cyan-50 p-4 text-sm text-violet-900"><span className="text-lg">🧪</span><div><p className="font-extrabold">Modo de demonstração seguro ativo</p><p className="mt-1 text-xs">Simulações entram como entregues na fila com preview e botões, sem chamar Baileys, SMTP ou Resend.</p></div></div>}
     <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4"><Metric label="Canais ativos" value={stats.active} icon="📡" color="cyan" /><Metric label="Fila pendente" value={stats.queued} icon="📤" color="amber" /><Metric label="Falhas" value={stats.failed} icon="⚠️" color="red" /><Metric label="Inbox não lido" value={stats.unread} icon="📥" color="violet" /></div>
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[220px_1fr]">
@@ -88,7 +92,7 @@ export function CommunicationCenter({ data }: { data: Row }) {
         {tab === "templates" && <Templates templates={templates} onEdit={setTemplateModal} />}
         {tab === "rules" && <Rules rules={rules} templates={templates} onEdit={setRuleModal} onToggle={toggleRule} />}
         {tab === "outbox" && <Outbox outbox={outbox} customers={customers} onAction={outboxAction} />}
-        {tab === "inbox" && <Inbox inbox={inbox} customers={customers} onReply={setReplyItem} />}
+        {tab === "inbox" && <Inbox inbox={inbox} customers={customers} />}
         {tab === "consents" && <Consents consents={consents} customers={customers} onRefresh={() => router.refresh()} />}
       </div>
     </div>
@@ -96,7 +100,6 @@ export function CommunicationCenter({ data }: { data: Row }) {
     {templateModal && <TemplateModal template={templateModal === "new" ? null : templateModal} onClose={() => setTemplateModal(null)} onSaved={() => { setTemplateModal(null); router.refresh(); }} />}
     {ruleModal && <RuleModal rule={ruleModal === "new" ? null : ruleModal} templates={templates} onClose={() => setRuleModal(null)} onSaved={() => { setRuleModal(null); router.refresh(); }} />}
     {composeOpen && <ComposeModal channels={channels} templates={templates} customers={customers} demoMode={demoMode} onClose={() => setComposeOpen(false)} onSaved={() => { setComposeOpen(false); router.refresh(); }} />}
-    {replyItem && <ReplyModal item={replyItem} customers={customers} demoMode={demoMode} history={inbox} onClose={() => setReplyItem(null)} onSent={() => { setReplyItem(null); router.refresh(); }} />}
   </div>;
 }
 
@@ -110,9 +113,7 @@ function Rules({ rules, templates, onEdit, onToggle }: { rules: Row[]; templates
 
 function Outbox({ outbox, customers, onAction }: { outbox: Row[]; customers: Row[]; onAction: (id: number, op: "approve" | "cancel" | "retry") => void }) { return <Card className="overflow-hidden"><CardHeader title="Fila transacional / Outbox" subtitle="Registros auditáveis; workers separados enviam sem travar ERP." /><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-slate-50 text-left text-[11px] uppercase text-slate-500"><th className="px-4 py-3">Canal</th><th className="px-4 py-3">Cliente</th><th className="px-4 py-3">Evento</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">CTA</th><th className="px-4 py-3" /></tr></thead><tbody className="divide-y divide-slate-50">{outbox.map((item) => { const customer = customers.find((c) => c.id === item.customerId); return <tr key={item.id}><td className="px-4 py-3"><Badge color={item.channel === "whatsapp" ? "green" : "blue"}>{item.channel}</Badge></td><td className="px-4 py-3">{customer ? <ClientIdentity customer={customer} variant="inline" /> : item.recipient}</td><td className="px-4 py-3 text-slate-500">{item.eventType || "manual"}</td><td className="px-4 py-3"><Badge color={statusColor[item.status] || "slate"}>{item.status}</Badge>{item.lastError && <p className="mt-1 text-[10px] text-rose-600">{item.lastError}</p>}</td><td className="px-4 py-3">{item.interactive?.buttons?.length || 0}</td><td className="px-4 py-3 text-right">{item.status === "draft" && <button onClick={() => onAction(item.id, "approve")} className="mr-2 text-xs font-bold text-emerald-600 hover:underline">Aprovar</button>}{["queued", "draft", "processing"].includes(item.status) && <button onClick={() => onAction(item.id, "cancel")} className="mr-2 text-xs font-bold text-rose-600 hover:underline">Cancelar</button>}{item.status === "failed" && <button onClick={() => onAction(item.id, "retry")} className="text-xs font-bold text-cyan-600 hover:underline">Tentar de novo</button>}</td></tr>; })}</tbody></table></div></Card>; }
 
-function Inbox({ inbox, customers, onReply }: { inbox: Row[]; customers: Row[]; onReply: (item: Row) => void }) {
-  return <Card className="overflow-hidden"><CardHeader title="Inbox unificado" subtitle="Mensagens recebidas criam atividades no Cliente 360 e podem receber resposta pela Outbox." /><div className="divide-y divide-slate-50">{inbox.length ? inbox.map((item) => { const customer = customers.find((c) => c.id === item.customerId); return <div key={item.id} className="flex gap-3 px-5 py-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50">💬</div><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2">{customer ? <ClientIdentity customer={customer} variant="inline" /> : <p className="font-bold text-slate-700">{item.sender}</p>}<span className="shrink-0 text-[11px] text-slate-400">{formatDateTime(item.createdAt)}</span></div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.body || "[sem texto]"}</p><div className="mt-2 flex justify-end"><button onClick={() => onReply(item)} className="text-xs font-bold text-emerald-600 hover:underline">↩ Responder no WhatsApp</button></div></div></div>; }) : <p className="p-12 text-center text-sm text-slate-400">Nenhuma mensagem recebida ainda.</p>}</div></Card>;
-}
+function Inbox({ inbox, customers }: { inbox: Row[]; customers: Row[] }) { return <Card className="overflow-hidden"><CardHeader title="Inbox unificado" subtitle="Mensagens recebidas criam atividades no Cliente 360 e alertas internos." /><div className="divide-y divide-slate-50">{inbox.length ? inbox.map((item) => { const customer = customers.find((c) => c.id === item.customerId); return <div key={item.id} className="flex gap-3 px-5 py-4"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50">💬</div><div className="min-w-0 flex-1"><div className="flex justify-between">{customer ? <ClientIdentity customer={customer} variant="inline" /> : <p className="font-bold text-slate-700">{item.sender}</p>}<span className="text-[11px] text-slate-400">{formatDateTime(item.createdAt)}</span></div><p className="mt-2 text-sm text-slate-600">{item.body || "[sem texto]"}</p></div></div>; }) : <p className="p-12 text-center text-sm text-slate-400">Nenhuma mensagem recebida ainda.</p>}</div></Card>; }
 
 function Consents({ consents, customers, onRefresh }: { consents: Row[]; customers: Row[]; onRefresh: () => void }) { async function toggle(consent: Row) { await mutate("customer-consents", "update", { status: consent.status === "granted" ? "revoked" : "granted", revokedAt: consent.status === "granted" ? new Date() : null, grantedAt: consent.status !== "granted" ? new Date() : consent.grantedAt }, consent.id); onRefresh(); } return <Card className="overflow-hidden"><CardHeader title="Consentimentos" subtitle="Marketing e transacional permanecem separados." /><div className="divide-y divide-slate-50">{consents.map((item) => { const customer = customers.find((c) => c.id === item.customerId); return <div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-3">{customer ? <ClientIdentity customer={customer} variant="inline" className="min-w-[220px] flex-1" /> : <span className="flex-1 text-slate-400">Cliente removido</span>}<Badge color={item.channel === "whatsapp" ? "green" : "blue"}>{item.channel}</Badge><Badge color={item.kind === "transactional" ? "cyan" : "violet"}>{item.kind}</Badge><Badge color={item.status === "granted" ? "green" : "red"}>{item.status}</Badge><button className="text-xs font-bold text-cyan-600 hover:underline" onClick={() => toggle(item)}>{item.status === "granted" ? "Revogar" : "Conceder"}</button></div>; })}</div></Card>; }
 
