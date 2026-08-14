@@ -1,14 +1,18 @@
 # GrafCenter - Instrução de Instalação
 
-Sistema de Gerenciamento de Impressoras e Precificação para Gráfica.
+ERP + CRM Completo para Gráfica Rápida, Papelaria Personalizada e Impressoras 3D.
+
+**Versão Atual:** v1.5.0  
+**Atualizado:** 2026-08-14
 
 ## Stack Tecnológico
 
-- **Frontend:** Next.js 16.2.6
-- **ORM:** Drizzle ORM
-- **Database:** PostgreSQL
+- **Frontend:** Next.js 16.2.6 (React 19.2.6)
+- **ORM:** Drizzle ORM 0.45.2
+- **Database:** PostgreSQL 12+ (33 tabelas)
 - **Process Manager:** PM2
 - **Node.js:** v20+
+- **Styling:** Tailwind CSS 4.1.17
 
 ## Pré-requisitos
 
@@ -36,25 +40,57 @@ DATABASE_URL=postgresql://usuario:senha@host:5432/database?schema=public
 ### 3. Schema do Banco de Dados
 
 ```bash
-# Gerar migração SQL
-npm run db:generate
+# Gerar migrações SQL (cria drizzle/*.sql)
+npx drizzle-kit generate
 
-# Aplicar schema ao banco (alternativa não-interativa)
+# Aplicar todas as migrações ao banco (não-interativo)
 psql -U usuario -d database -h host -f drizzle/0000_powerful_echo.sql
+psql -U usuario -d database -h host -f drizzle/0001_sour_morph.sql
 ```
 
-### 4. Seed de Dados Iniciais
+**Tabelas Criadas (33 total):**
+
+**Impressoras & Produção:**
+- printer_categories, printers, printer_consumables, print_formats
+- production_schedules (novo v1.5.0)
+
+**Produtos & Estoque:**
+- products, product_materials, product_finishings
+- materials, finishing_items, services
+- item_categories, stock_movements
+
+**Clientes & Comercial (v1.5.0):**
+- customers (estendido - 32 cols)
+- crm_leads, crm_activities, art_approvals (novos)
+
+**Pedidos & Vendas:**
+- orders, quote_items, sales (novo)
+- deliveries (novo)
+
+**Compras & Fornecedores (v1.5.0):**
+- suppliers, purchases (novos)
+
+**Precificação:**
+- pricing_tables
+
+**Financeiro:**
+- transactions
+
+**Sistema:**
+- settings, api_integrations, kanban_cards
+
+### 4. Seed de Dados Iniciais (Opcional)
 
 ```bash
 node seed.mjs
 ```
 
-Popula o banco com:
+Popula o banco com dados de demonstração:
 - 5 categorias de impressoras (Laser, Jato de Tinta, Térmica, 3D, Sublimação)
 - 9 impressoras pré-configuradas
 - Categorias de produtos, materiais, serviços e acabamentos
-- Formatos de impressão (A4, A3, A3+, fotos, etiquetas, 3D)
-- Tabelas de preços DTF e Comunicação Visual
+- Formatos de impressão (A4, A3, A3+, fotos, etiquetas, 3D em gramas)
+- Tabelas de preços DTF UV, DTF Têxtil, Lona e Adesivo
 
 ### 5. Build
 
@@ -102,14 +138,45 @@ drizzle/
 seed.mjs               # Initial data seeding
 ```
 
+## Módulos do Sistema (v1.5.0)
+
+### 📊 Comercial & CRM
+- **Pipeline Comercial** (/crm) - Leads, etapas, probabilidade, drag-and-drop
+- **Cliente 360** (/clientes/[id]) - Timeline, oportunidades, histórico completo
+- **Busca Global** - Clientes, produtos, pedidos, orçamentos em tempo real
+
+### 📦 Operação
+- **Impressoras** (/impressoras) - Gerenciamento e precificação
+- **Pedidos & OS** (/pedidos) - Conversão inteligente de orçamento para produção
+- **Aprovação de Arte** - Versões de arquivo, comentários, bloqueio operacional
+- **Agenda de Produção** (/agenda-producao) - Planejamento semanal por máquina
+- **Entregas** (/entregas) - Motoboy, Correios, transportadora, balcão
+
+### 💰 Compras & Estoque
+- **Fornecedores** (/fornecedores) - Cadastro e integração
+- **Compras** (/compras) - Pedidos de compra pesquisáveis
+- **Estoque** - Recebimento automático de compras
+
+### 🎨 Catálogo & Precificação
+- **Produtos** (/produtos) - Catálogo com precificação
+- **Materiais** - Estoque de matéria-prima
+- **Serviços** - Acabamentos terceirizados
+- **Tabelas de Preços** - DTF, Lona, Adesivo, Comunicação Visual
+
+### 📋 Suporte
+- **Kanban** - Workflow visual customizável
+- **Relatórios** - Análises de vendas, produção, financeiro
+- **Integrações** - WhatsApp, VoIP, Portal, Email
+- **Configurações** - Sistema, usuários, permissões
+
 ## Scripts Disponíveis
 
 - `npm run dev` - Desenvolvimento (modo watch)
 - `npm run build` - Build para produção
 - `npm start` - Inicia servidor Next.js
-- `npm run db:generate` - Gera migração Drizzle
-- `npm run db:push` - Aplica migração ao banco (requer TTY)
 - `npm run lint` - Lint do código
+- `npm run typecheck` - Verificação de tipos TypeScript
+- `node seed.mjs` - Popular banco com dados iniciais
 
 ## Notas de Segurança
 
