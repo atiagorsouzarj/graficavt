@@ -85,6 +85,7 @@ export function ImpressorasClient({
         unitLabel: form.unitLabel,
         slug: SLUG(form.name),
         fixedCostPerPage: Number(form.fixedCostPerPage || 0).toFixed(6),
+        referenceCoverage: (Number(form.referenceCoverage || 5) / 100).toFixed(4),
         wasteFactor: (Number(form.wasteFactor || 0) / 100).toFixed(4),
         defaultMargin: (Number(form.defaultMargin || 0) / 100).toFixed(4),
       };
@@ -112,6 +113,7 @@ export function ImpressorasClient({
         unitCost: Number(form.unitCost || 0).toFixed(4),
         yieldPages: Number(form.yieldPages || 0),
         appliesTo: form.appliesTo,
+        costRole: form.costRole || "colorant",
       };
       if (id) await mutate("consumables", "update", data, id);
       else await mutate("consumables", "create", data);
@@ -166,6 +168,7 @@ export function ImpressorasClient({
         heightMm: String(Number(form.heightMm || 0)),
         areaFactor: String(Number(form.areaFactor || 1)),
         inkCoverage: String(Number(form.inkCoverage || 0) / 100),
+        printCostOverride: String(Number(form.printCostOverride || 0)),
         isPhoto: form.isPhoto === "true",
       };
       if (id) await mutate("print-formats", "update", data, id);
@@ -574,6 +577,7 @@ function CategoryModal({
     measureMode: initial?.measureMode || "pagina",
     unitLabel: initial?.unitLabel || "folha",
     fixedCostPerPage: String(Number(initial?.fixedCostPerPage || 0)),
+    referenceCoverage: String(Number(initial?.referenceCoverage ?? 0.05) * 100),
     wasteFactor: String(Number(initial?.wasteFactor || 0) * 100),
     defaultMargin: String(Number(initial?.defaultMargin || 0.4) * 100),
   });
@@ -643,6 +647,14 @@ function CategoryModal({
             onChange={(e) => set("fixedCostPerPage", e.target.value)}
           />
         </Field>
+        <Field label="Cobertura de referência (%)" hint="Laser normalmente 5%; foto/sublimação 100%">
+          <Input
+            type="number"
+            step="0.01"
+            value={f.referenceCoverage}
+            onChange={(e) => set("referenceCoverage", e.target.value)}
+          />
+        </Field>
         <Field label="Fator de perda (%)" hint="Resíduos, provas, refugo">
           <Input
             type="number"
@@ -691,6 +703,7 @@ function ConsumableModal({
     unitCost: String(Number(initial?.unitCost || 0)),
     yieldPages: String(initial?.yieldPages || 0),
     appliesTo: initial?.appliesTo || "both",
+    costRole: initial?.costRole || "colorant",
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
   const perUnit =
@@ -726,7 +739,7 @@ function ConsumableModal({
             onChange={(e) => set("yieldPages", e.target.value)}
           />
         </Field>
-        <Field label="Aplica-se a" className="col-span-2">
+        <Field label="Aplica-se a">
           <Select
             value={f.appliesTo}
             onChange={(e) => set("appliesTo", e.target.value)}
@@ -734,6 +747,12 @@ function ConsumableModal({
             <option value="both">P&amp;B e Colorido</option>
             <option value="mono">Apenas P&amp;B</option>
             <option value="color">Apenas Colorido</option>
+          </Select>
+        </Field>
+        <Field label="Tipo de custo" hint="Colorante varia com cobertura; mecânico não">
+          <Select value={f.costRole} onChange={(e) => set("costRole", e.target.value)}>
+            <option value="colorant">Colorante (toner, tinta, resina)</option>
+            <option value="mechanical">Mecânico (cilindro, fusora, manutenção)</option>
           </Select>
         </Field>
       </div>

@@ -78,9 +78,14 @@ export default async function ProdutosPage() {
                     </Badge>
                   )}
                 </div>
+                {p.calculationMode === "batch" && (
+                  <div className="mt-3 rounded-xl bg-cyan-50 px-3 py-2 text-xs text-cyan-800 ring-1 ring-cyan-100">
+                    📐 Tiragem padrão: <strong>{Number(p.defaultQuantity)} un.</strong> · {Number(p.piecesPerSheet)} peça(s)/folha
+                  </div>
+                )}
                 <div className="mt-4 space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Custo</span>
+                    <span className="text-slate-500">{p.calculationMode === "batch" ? "Custo do lote" : "Custo"}</span>
                     <span className="font-medium text-slate-700">
                       {formatMoney(cost)}
                     </span>
@@ -92,7 +97,7 @@ export default async function ProdutosPage() {
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-slate-100 pt-1.5">
-                    <span className="font-semibold text-slate-700">Preço final</span>
+                    <span className="font-semibold text-slate-700">{p.calculationMode === "batch" ? "Preço da tiragem" : "Preço final"}</span>
                     <span className="text-lg font-black text-cyan-600">
                       {formatMoney(final)}
                     </span>

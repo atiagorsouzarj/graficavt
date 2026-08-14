@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { mutate } from "@/lib/mutate";
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -15,7 +15,7 @@ import {
   Select,
   Textarea,
 } from "@/components/ui";
-import { initials } from "@/lib/format";
+import { ClientIdentity, whatsappHref } from "@/components/ClientIdentity";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow = Record<string, any>;
@@ -181,50 +181,40 @@ export function ClientsCRM({ customers }: { customers: AnyRow[] }) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => (
-            <Card key={c.id} className="p-4 transition-all hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md">
-              <div className="flex gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-sm font-extrabold text-white shadow-sm">
-                  {initials(c.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-slate-800">{c.name}</p>
-                      {c.tradeName && (
-                        <p className="truncate text-xs text-slate-400">{c.tradeName}</p>
-                      )}
-                    </div>
-                    <Badge color={c.type === "pj" ? "violet" : "blue"}>
-                      {String(c.type || "pf").toUpperCase()}
-                    </Badge>
+          {filtered.map((c) => {
+            const whatsapp = whatsappHref(c);
+            return (
+              <ClientIdentity
+                key={c.id}
+                customer={c}
+                variant="card"
+                className="transition-all hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-md"
+                action={
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link href={`/clientes/${c.id}`} className="text-xs font-bold text-slate-600 hover:text-cyan-600 hover:underline">
+                      Perfil 360
+                    </Link>
+                    {whatsapp && (
+                      <a
+                        href={whatsapp}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-bold text-emerald-600 hover:underline"
+                      >
+                        WhatsApp
+                      </a>
+                    )}
+                    <button onClick={() => openEdit(c)} className="text-xs font-bold text-cyan-600 hover:underline">
+                      Editar
+                    </button>
+                    <button onClick={() => remove(c.id)} className="text-xs font-bold text-rose-600 hover:underline">
+                      Excluir
+                    </button>
                   </div>
-                  <div className="mt-2 space-y-1 text-xs text-slate-500">
-                    <p>🪪 {c.document || "Documento não informado"}</p>
-                    <p className="truncate">💬 {c.whatsapp || c.phone || "Telefone não informado"}</p>
-                    <p className="truncate">✉️ {c.email || "E-mail não informado"}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
-                <Badge
-                  color={
-                    c.status === "ativo" ? "green" : c.status === "lead" ? "amber" : "slate"
-                  }
-                >
-                  {c.status}
-                </Badge>
-                <div className="flex gap-2">
-                  <button onClick={() => openEdit(c)} className="text-xs font-bold text-cyan-600 hover:underline">
-                    Editar
-                  </button>
-                  <button onClick={() => remove(c.id)} className="text-xs font-bold text-rose-600 hover:underline">
-                    Excluir
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))}
+                }
+              />
+            );
+          })}
         </div>
       )}
 

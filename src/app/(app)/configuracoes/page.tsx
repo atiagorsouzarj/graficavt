@@ -16,6 +16,7 @@ export default async function ConfigPage() {
     company_phone: "",
     company_address: "",
     pix_key: "",
+    operational_rate: "15",
     tax_rate: "6",
     card_fee_debit: "1.99",
     card_fee_credit: "4.99",

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 
 export interface PricingDefaults {
   taxRate: number; // imposto sobre venda (%)
+  operationalRate: number; // custo operacional global para markup divisor (%)
   cardFeeRate: number; // taxa maquininha débito (%)
   cardFeeCreditRate: number; // taxa maquininha crédito (%)
   company_name: string;
@@ -16,6 +17,7 @@ export interface PricingDefaults {
 
 const DEFAULTS: PricingDefaults = {
   taxRate: 0.06,
+  operationalRate: 0.15,
   cardFeeRate: 0.0199,
   cardFeeCreditRate: 0.0499,
   company_name: "Gráfica VT Digital",
@@ -38,6 +40,7 @@ export async function getPricingDefaults(): Promise<PricingDefaults> {
     const map = new Map(rows.map((r) => [r.key, r.value]));
     cache = {
       taxRate: num(map.get("tax_rate"), DEFAULTS.taxRate),
+      operationalRate: num(map.get("operational_rate"), DEFAULTS.operationalRate),
       cardFeeRate: num(map.get("card_fee_debit"), DEFAULTS.cardFeeRate),
       cardFeeCreditRate: num(map.get("card_fee_credit"), DEFAULTS.cardFeeCreditRate),
       company_name: map.get("company_name") || DEFAULTS.company_name,

@@ -31,6 +31,7 @@ const GROUPS: {
     icon: "🧮",
     hint: "Aplicados automaticamente na calculadora de produtos e no PDV.",
     fields: [
+      { key: "operational_rate", label: "Custo operacional padrão", type: "percent", suffix: "%" },
       { key: "tax_rate", label: "Imposto sobre venda", type: "percent", suffix: "%" },
       { key: "card_fee_debit", label: "Taxa maquininha (Débito)", type: "percent", suffix: "%" },
       { key: "card_fee_credit", label: "Taxa maquininha (Crédito)", type: "percent", suffix: "%" },
@@ -132,11 +133,11 @@ export function ConfigPanel({ values }: Props) {
           </p>
           <p>
             <Badge color="violet">4</Badge>{" "}
-            Preço de venda = custo base ÷ (1 − margem).
+            Produtos <strong>Unitários</strong>: preço de venda = custo base ÷ (1 − margem).
           </p>
           <p>
             <Badge color="violet">5</Badge>{" "}
-            Preço final = venda + impostos + taxa de maquininha.
+            Produtos por <strong>Tiragem</strong>: preço = custo direto ÷ (1 − operação − imposto − pagamento − lucro).
           </p>
         </div>
       </Card>

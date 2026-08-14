@@ -90,6 +90,19 @@ body {
     padding: 0 !important;
     page-break-inside: avoid;
   }
+  /* Térmicas economizam tinta: força preto real e traço nítido. */
+  #cupom-doc,
+  #cupom-doc * {
+    color: #000 !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    text-shadow: 0 0 0.1px #000;
+  }
+  #cupom-doc .border-dashed {
+    border-color: #000 !important;
+    border-top-width: 1px !important;
+  }
   @page {
     margin: 1cm;
     size: auto;

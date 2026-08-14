@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button, Input, Card, Field, Select } from "@/components/ui";
 import { SearchCombobox } from "@/components/SearchCombobox";
+import { ClientIdentity } from "@/components/ClientIdentity";
 import { formatMoney, formatDateTime } from "@/lib/format";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +61,7 @@ export function PDVClient({ products, services, customers, company, defaults }: 
     })),
     [customers]
   );
+  const selectedCustomer = customers.find((c) => String(c.id) === customerId) || null;
 
   const catalog = useMemo(() => {
     const items = [
@@ -251,6 +253,7 @@ export function PDVClient({ products, services, customers, company, defaults }: 
                   emptyLabel="Cliente Balcão"
                 />
               </Field>
+              {selectedCustomer && <ClientIdentity customer={selectedCustomer} variant="compact" className="mt-2" />}
             </div>
 
             <div className="max-h-56 overflow-y-auto border-y border-slate-100">
@@ -383,8 +386,30 @@ export function PDVClient({ products, services, customers, company, defaults }: 
   );
 }
 
-/* ================= CUPOM FISCAL 80 COLUNAS ================= */
 /* ================= CUPOM TÉRMICO 80mm ================= */
+function ThermalRule() {
+  return <div className="my-1.5 border-t border-dashed border-black" />;
+}
+
+function ReceiptRow({
+  label,
+  value,
+  bold = false,
+  large = false,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  large?: boolean;
+}) {
+  return (
+    <div className={`flex items-baseline justify-between gap-2 ${bold ? "font-bold" : ""} ${large ? "text-[12px]" : ""}`}>
+      <span className="min-w-0">{label}</span>
+      <span className="shrink-0 text-right">{value}</span>
+    </div>
+  );
+}
+
 function CupomDoc({
   sale,
   company,
@@ -395,14 +420,14 @@ function CupomDoc({
   onClose: () => void;
 }) {
   const cust = sale._customer;
-  const dash = "-".repeat(48);
-  const money = (v: unknown) => Number(v || 0).toFixed(2).replace(".", ",");
+  const money = (value: unknown) =>
+    Number(value || 0).toFixed(2).replace(".", ",");
   const date = new Date(sale.createdAt || Date.now());
-  const emitted = `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-  const customerAddress = cust?.street
+  const issuedAt = `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  const address = cust?.street
     ? `${cust.street}${cust.number ? `, ${cust.number}` : ""}${cust.complement ? ` - ${cust.complement}` : ""}`
     : "";
-  const payment = sale.paymentMethod || "A VISTA";
+  const city = [cust?.city, cust?.state].filter(Boolean).join(" - ");
 
   return (
     <div id="print-area">
@@ -411,71 +436,83 @@ function CupomDoc({
         <Button onClick={() => window.print()}>🖨️ Imprimir Cupom 80mm</Button>
       </div>
 
-      <div className="mx-auto w-[80mm] max-w-full bg-white px-3 py-4 shadow-lg print:w-[72mm] print:shadow-none">
-        <div id="cupom-doc" className="whitespace-pre-wrap font-mono text-[10px] leading-[1.35] text-slate-900 print:text-[9.5px]">
-          <div className="text-center text-[12px] font-bold uppercase tracking-wide">{company.company_name}</div>
-          <div className="text-center uppercase">GRÁFICA RÁPIDA • PERSONALIZADOS</div>
-          <div className="mt-1 grid grid-cols-[1fr_auto] gap-x-2">
-            <span>{company.company_address || "ENDEREÇO NÃO INFORMADO"}</span>
-            <span>{company.company_phone || ""}</span>
-            <span>{company.pix_key ? `contato: ${company.pix_key}` : ""}</span>
-            <span>{cust?.whatsapp || cust?.phone || ""}</span>
+      <div className="mx-auto box-border w-[80mm] max-w-full bg-white px-[4mm] py-[4mm] shadow-lg print:mx-0 print:w-[80mm] print:px-[4mm] print:py-[3mm] print:shadow-none">
+        <div id="cupom-doc" className="box-border w-[72mm] font-mono text-[10px] font-semibold leading-[1.28] text-black print:text-[10px] print:font-bold">
+          <div className="text-center text-[12px] font-black uppercase tracking-wide">
+            {company.company_name || "GRÁFICA VT DIGITAL"}
           </div>
-          <div className="text-center">CNPJ: {company.company_document || ""}</div>
-          <div>{dash}</div>
-          <div className="text-center font-bold">CUPOM NAO FISCAL {sale.number} {emitted}</div>
-          <div>{dash}</div>
+          <div className="text-center text-[9px] font-bold uppercase">
+            GRÁFICA RÁPIDA • PERSONALIZADOS
+          </div>
+          <div className="mt-1.5 text-center text-[9px] leading-[1.25]">
+            <div>{company.company_address || "ENDEREÇO NÃO INFORMADO"}</div>
+            {company.company_phone && <div>{company.company_phone}</div>}
+            {company.pix_key && <div>{company.pix_key}</div>}
+            {company.company_document && <div>CNPJ: {company.company_document}</div>}
+          </div>
 
-          <div className="font-bold uppercase">{cust?.name || "CLIENTE BALCÃO"}</div>
-          {customerAddress && <div>{customerAddress.toUpperCase()}</div>}
+          <ThermalRule />
+          <div className="text-center text-[10px] font-black uppercase">
+            CUPOM NAO FISCAL {sale.number}
+          </div>
+          <div className="text-center text-[9px]">{issuedAt}</div>
+          <ThermalRule />
+
+          <div className="font-black uppercase">{cust?.name || "CLIENTE BALCÃO"}</div>
+          {address && <div className="uppercase">{address}</div>}
           {cust?.document && <div>{cust.document}</div>}
-          <div className="grid grid-cols-[1fr_auto] gap-x-2">
-            <span>{cust?.district || ""}</span><span>{cust?.phone || ""}</span>
-            <span>{cust?.city ? `${cust.city}${cust?.state ? ` - ${cust.state}` : ""}` : ""}</span>
+          {cust?.district && <div>{cust.district}</div>}
+          <div className="flex justify-between gap-2">
+            <span>{city}</span>
             <span>{cust?.cep ? `CEP: ${cust.cep}` : ""}</span>
           </div>
-          <div>{dash}</div>
+          {cust?.whatsapp || cust?.phone ? <div>CONTATO: {cust?.whatsapp || cust?.phone}</div> : null}
+          <ThermalRule />
 
-          <div className="grid grid-cols-[1fr_auto] font-bold uppercase">
+          <div className="flex justify-between text-[9px] font-black uppercase">
             <span>Descrição do Produto</span><span>UNI</span>
           </div>
-          <div className="grid grid-cols-[1.1fr_.75fr_.8fr_1fr] text-[9px] uppercase">
-            <span>Valor</span><span>Quantia</span><span>Desconto</span><span className="text-right">Vlr Total</span>
+          <div className="grid grid-cols-[1fr_16mm] text-[8px] uppercase">
+            <span>Valor&nbsp;&nbsp;&nbsp;&nbsp;Quantia&nbsp;&nbsp;&nbsp;&nbsp;Desconto</span>
+            <span className="text-right">Vlr Total</span>
           </div>
-          <div>{dash}</div>
+          <ThermalRule />
 
-          {Array.isArray(sale.items) && sale.items.map((it: AnyRow, i: number) => (
-            <div key={i} className="mb-1.5">
-              <div className="grid grid-cols-[1fr_auto] font-bold uppercase">
-                <span className="pr-2">{it.description}</span><span>UNI</span>
+          {Array.isArray(sale.items) && sale.items.map((item: AnyRow, index: number) => (
+            <div key={index} className="mb-2">
+              <div className="flex justify-between gap-2 font-black uppercase">
+                <span className="min-w-0 break-words">{item.description}</span><span className="shrink-0">UNI</span>
               </div>
-              <div className="grid grid-cols-[1.1fr_.75fr_.8fr_1fr]">
-                <span>{money(it.unitPrice)}</span>
-                <span>{Number(it.quantity || 0).toFixed(3).replace(".", ",")}</span>
-                <span>0,00</span>
-                <span className="text-right font-bold">{money(it.total)}</span>
+              <div className="grid grid-cols-[1fr_16mm]">
+                <span>
+                  {money(item.unitPrice)}&nbsp;&nbsp;&nbsp;&nbsp;{Number(item.quantity || 0).toFixed(3).replace(".", ",")}&nbsp;&nbsp;&nbsp;&nbsp;0,00
+                </span>
+                <span className="text-right font-black">{money(item.total)}</span>
               </div>
             </div>
           ))}
 
-          <div>{dash}</div>
-          <div className="grid grid-cols-[1fr_auto]"><span>VALOR PRODUTOS</span><span>R$ {money(sale.subtotal)}</span></div>
-          <div className="grid grid-cols-[1fr_auto]"><span>VALOR DESCONTO</span><span>R$ {money(sale.discount)}</span></div>
-          <div className="grid grid-cols-[1fr_auto] text-[12px] font-bold"><span>VALOR TOTAL</span><span>R$ {money(sale.total)}</span></div>
-          <div>{dash}</div>
-          <div className="grid grid-cols-[1fr_auto]"><span>VALOR PAGO</span><span>R$ {money(sale._received || sale.total)}</span></div>
-          <div className="grid grid-cols-[1fr_auto]"><span>VALOR TROCO</span><span>R$ {money(sale._change || 0)}</span></div>
-          <div>{dash}</div>
+          <ThermalRule />
+          <ReceiptRow label="VALOR PRODUTOS" value={`R$ ${money(sale.subtotal)}`} />
+          <ReceiptRow label="VALOR DESCONTO" value={`R$ ${money(sale.discount)}`} />
+          <ReceiptRow label="VALOR TOTAL" value={`R$ ${money(sale.total)}`} bold large />
+          <ThermalRule />
+          <ReceiptRow label="VALOR PAGO" value={`R$ ${money(sale._received || sale.total)}`} />
+          <ReceiptRow label="VALOR TROCO" value={`R$ ${money(sale._change || 0)}`} />
+          <ThermalRule />
 
-          <div className="mt-3 text-center text-[11px]">Agradecemos pela preferência, esperamos<br/>seu retorno em breve!</div>
+          <div className="mt-3 text-center text-[10px] font-bold">
+            Agradecemos pela preferência, esperamos<br />
+            seu retorno em breve!
+          </div>
           <div className="mt-2">Vendedor: OPERADOR</div>
           <div>Situação: Entrega direta para o cliente</div>
-          <div>Entrega: {emitted}</div>
-          <div className="uppercase">{payment}</div>
-          <div>Informações / Anotações / Observações Gerais</div>
+          <div>Entrega: {issuedAt}</div>
+          <div className="uppercase">{sale.paymentMethod || "A VISTA"}</div>
+          <div className="mt-1">Informações / Anotações / Observações Gerais</div>
           <div>Não deixe de aproveitar as nossas próximas promoções!!!</div>
-          <div>{dash}</div>
-          <div className="text-center text-[8px] text-slate-500">GrafCenter PDV · Documento sem valor fiscal</div>
+          <ThermalRule />
+          <div className="text-center text-[8px] font-medium">GrafCenter PDV · Documento sem valor fiscal</div>
         </div>
       </div>
     </div>

@@ -46,6 +46,8 @@ export default async function EditarProdutoPage({
         finishings: data.finishings.map((f) => ({
           finishingId: f.finishingId,
           quantity: String(f.quantity),
+          chargeMode: f.chargeMode,
+          batchSize: String(f.batchSize),
         })),
         materials: data.materials.map((m) => ({
           materialId: m.materialId,

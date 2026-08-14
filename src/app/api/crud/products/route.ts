@@ -9,7 +9,12 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-type Comp = { id: number; quantity: number };
+type Comp = {
+  id: number;
+  quantity: number;
+  chargeMode?: string;
+  batchSize?: number;
+};
 
 function genSku(name: string, id: number) {
   const slug = (name || "")
@@ -37,9 +42,19 @@ export async function POST(req: Request) {
     productCategoryId: d.productCategoryId ? Number(d.productCategoryId) : null,
     printerId: d.printerId ? Number(d.printerId) : null,
     printerCategoryId: d.printerCategoryId ? Number(d.printerCategoryId) : null,
+    printFormatId: d.printFormatId ? Number(d.printFormatId) : null,
     colorMode: d.colorMode || "mono",
     pagesPerUnit: String(d.pagesPerUnit ?? 1),
     copies: String(d.copies ?? 1),
+    calculationMode: d.calculationMode || "unit",
+    defaultQuantity: String(d.defaultQuantity ?? 1),
+    piecesPerSheet: String(d.piecesPerSheet ?? 1),
+    printSides: Number(d.printSides ?? 1),
+    wastePercent: String(d.wastePercent ?? 0),
+    setupSheets: Number(d.setupSheets ?? 0),
+    minOrderQty: String(d.minOrderQty ?? 1),
+    operationalRate: String(d.operationalRate ?? 0),
+    roundingStep: String(d.roundingStep ?? 0.01),
     baseMaterialId: d.baseMaterialId ? Number(d.baseMaterialId) : null,
     baseMaterialQty: String(d.baseMaterialQty ?? 1),
     baseServiceId: d.baseServiceId ? Number(d.baseServiceId) : null,
@@ -123,6 +138,8 @@ async function syncComponents(
       productId,
       finishingId: f.id,
       quantity: String(f.quantity ?? 1),
+      chargeMode: f.chargeMode || "per_piece",
+      batchSize: String(f.batchSize ?? 1),
     });
   }
   for (const m of materials) {

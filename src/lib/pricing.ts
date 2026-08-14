@@ -51,12 +51,15 @@ export interface ConsumableLike {
   unitCost?: string | number | null;
   yieldPages?: string | number | null;
   appliesTo?: string | null;
+  /** colorant = toner/tinta/resina; mechanical = cilindro/fusora/manutenção */
+  costRole?: string | null;
 }
 export interface CategoryLike {
   fixedCostPerPage?: string | number | null;
   wasteFactor?: string | number | null;
   measureMode?: string | null;
   unitLabel?: string | null;
+  referenceCoverage?: string | number | null;
 }
 export interface PrinterLike {
   costMultiplier?: string | number | null;
@@ -297,6 +300,294 @@ export function computeProduct(input: ProductCalcInput): ProductCalcResult {
     cardFeeAmount,
     finalPrice,
     unitPrice: finalPrice,
+  };
+}
+
+export type FinishingChargeMode =
+  | "fixed_lot"
+  | "per_piece"
+  | "per_sheet"
+  | "per_kit"
+  | "per_meter"
+  | "per_m2";
+
+export interface PrintFormatLike {
+  name?: string | null;
+  areaFactor?: string | number | null;
+  inkCoverage?: string | number | null;
+  printCostOverride?: string | number | null;
+}
+
+export interface BatchFinishingLine {
+  finishing?: FinishingLike;
+  quantity: number;
+  chargeMode?: FinishingChargeMode | string | null;
+  batchSize?: number;
+}
+
+export interface BatchCalcInput {
+  printer?: PrinterLike | null;
+  category?: CategoryLike | null;
+  consumables: ConsumableLike[];
+  format?: PrintFormatLike | null;
+  colorMode: ColorMode;
+  /** quantidade efetivamente vendida / solicitada */
+  requestedQuantity: number;
+  /** quantas peças aproveitáveis cabem em uma folha cheia */
+  piecesPerSheet: number;
+  /** 1 para frente; 2 para frente e verso */
+  printSides: number;
+  /** perda técnica em decimal: 0.05 = 5% */
+  wastePercent: number;
+  /** folhas de setup/prova; o motor usa o maior entre perda e setup */
+  setupSheets: number;
+  /** folhas/material por folha impressa — normalmente 1 */
+  materialSheetsPerPrintedSheet: number;
+  baseMaterial?: MaterialLike | null;
+  extraMaterials: MaterialLine[];
+  finishings: BatchFinishingLine[];
+  service?: ServiceLike | null;
+  /** matriz de marginalização / markup divisor */
+  operationalRate: number;
+  taxRate: number;
+  paymentRate: number;
+  profitRate: number;
+  roundingStep?: number;
+}
+
+export interface BatchCalcResult {
+  lines: BreakdownLine[];
+  requestedQuantity: number;
+  baseSheets: number;
+  sheetsByWaste: number;
+  sheetsBySetup: number;
+  finalSheets: number;
+  printCostPerSheet: number;
+  printing: number;
+  materials: number;
+  finishing: number;
+  service: number;
+  directCost: number;
+  operationalAmount: number;
+  taxAmount: number;
+  paymentAmount: number;
+  profitAmount: number;
+  rateTotal: number;
+  divisor: number;
+  finalPrice: number;
+  unitPrice: number;
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Custo de uma folha impressa para uma receita de tiragem.
+ *
+ * Prioridade:
+ *  1. `printCostOverride` no formato: tabela comercial interna A4/A3/A3+.
+ *  2. Cálculo técnico: colorantes escalados pela cobertura + mecânica por
+ *     folha, multiplicados pela área e pelo número de faces.
+ */
+export function computePrintSheetCost({
+  printer,
+  category,
+  consumables,
+  format,
+  colorMode,
+  printSides = 1,
+}: {
+  printer?: PrinterLike | null;
+  category?: CategoryLike | null;
+  consumables: ConsumableLike[];
+  format?: PrintFormatLike | null;
+  colorMode: ColorMode;
+  printSides?: number;
+}): number {
+  if (!category) return 0;
+  const sides = Math.max(1, num(printSides, 1));
+  const override = num(format?.printCostOverride);
+  if (override > 0) return override * sides * num(printer?.costMultiplier, 1);
+
+  const applicable = consumables.filter((c) =>
+    colorMode === "mono"
+      ? c.appliesTo === "mono" || c.appliesTo === "both"
+      : c.appliesTo === "color" || c.appliesTo === "both"
+  );
+  const baseCoverage = Math.max(num(category.referenceCoverage, 0.05), 0.0001);
+  const coverage = Math.max(num(format?.inkCoverage, baseCoverage), 0);
+  const coverageFactor = coverage / baseCoverage;
+  const areaFactor = Math.max(num(format?.areaFactor, 1), 0);
+
+  const colorant = applicable
+    .filter((c) => (c.costRole || "colorant") === "colorant")
+    .reduce((sum, c) => sum + consumableCostPerPage(c), 0);
+  const mechanical = applicable
+    .filter((c) => (c.costRole || "colorant") !== "colorant")
+    .reduce((sum, c) => sum + consumableCostPerPage(c), 0);
+
+  const raw = (colorant * coverageFactor + mechanical + num(category.fixedCostPerPage)) * areaFactor * sides;
+  return raw * (1 + num(category.wasteFactor)) * num(printer?.costMultiplier, 1);
+}
+
+/** Arredonda preço comercial para cima no degrau informado. */
+export function roundCommercialPrice(value: number, step = 0.01): number {
+  const safeStep = Math.max(num(step, 0.01), 0.01);
+  return Math.ceil((value - 1e-9) / safeStep) * safeStep;
+}
+
+/**
+ * MOTOR DE TIRAGEM / APROVEITAMENTO DE FOLHA
+ *
+ * Etapas:
+ *  1. ceil(qtd / peças_por_folha) — nunca fraciona a folha;
+ *  2. aplica maior entre perda percentual e setup em folhas;
+ *  3. soma impressão + material + acabamentos por regra + serviço;
+ *  4. usa markup divisor: CD / (1 - operação - imposto - pagamento - lucro).
+ */
+export function computeBatchProduct(input: BatchCalcInput): BatchCalcResult {
+  const qty = Math.max(num(input.requestedQuantity), 0);
+  const pieces = Math.max(num(input.piecesPerSheet, 1), 1);
+  const baseSheets = qty > 0 ? Math.ceil(qty / pieces) : 0;
+  const sheetsByWaste = Math.ceil(baseSheets * (1 + Math.max(num(input.wastePercent), 0)));
+  const sheetsBySetup = baseSheets + Math.max(Math.floor(num(input.setupSheets)), 0);
+  const finalSheets = Math.max(sheetsByWaste, sheetsBySetup);
+  const lines: BreakdownLine[] = [];
+
+  const printCostPerSheet = computePrintSheetCost({
+    printer: input.printer,
+    category: input.category,
+    consumables: input.consumables,
+    format: input.format,
+    colorMode: input.colorMode,
+    printSides: input.printSides,
+  });
+  const printing = finalSheets * printCostPerSheet;
+  if (printing > 0 || finalSheets > 0) {
+    lines.push({
+      label: "Impressão da tiragem",
+      detail: `${finalSheets} folha(s) × ${formatMoney(printCostPerSheet)}/folha${input.printSides > 1 ? ` × ${input.printSides} faces` : ""}`,
+      amount: printing,
+    });
+  }
+
+  let materials = 0;
+  if (input.baseMaterial) {
+    const sheetQty = finalSheets * Math.max(num(input.materialSheetsPerPrintedSheet, 1), 0);
+    const cost = sheetQty * num(input.baseMaterial.unitCost);
+    materials += cost;
+    lines.push({
+      label: `Material: ${input.baseMaterial.name}`,
+      detail: `${sheetQty} ${input.baseMaterial.unit || "folha"}(s) × ${formatMoney(num(input.baseMaterial.unitCost))}`,
+      amount: cost,
+    });
+  }
+  for (const materialLine of input.extraMaterials) {
+    if (!materialLine.material) continue;
+    const cost = num(materialLine.material.unitCost) * num(materialLine.quantity) * qty;
+    materials += cost;
+    lines.push({
+      label: `Insumo por peça: ${materialLine.material.name}`,
+      detail: `${qty} peça(s) × ${num(materialLine.quantity)} ${materialLine.material.unit || "un"} × ${formatMoney(num(materialLine.material.unitCost))}`,
+      amount: cost,
+    });
+  }
+
+  let finishing = 0;
+  for (const line of input.finishings) {
+    if (!line.finishing) continue;
+    const mode = (line.chargeMode || "per_piece") as FinishingChargeMode;
+    const multiplier = Math.max(num(line.quantity, 1), 0);
+    const unitCost = num(line.finishing.unitCost);
+    const batchSize = Math.max(num(line.batchSize, 1), 1);
+    let units = qty;
+    if (mode === "fixed_lot") units = 1;
+    if (mode === "per_sheet") units = finalSheets;
+    if (mode === "per_kit") units = qty > 0 ? Math.ceil(qty / batchSize) : 0;
+    // per_meter e per_m2: `quantity` representa o consumo por unidade vendida
+    const cost = unitCost * multiplier * units;
+    finishing += cost;
+    const modeLabel: Record<FinishingChargeMode, string> = {
+      fixed_lot: "fixo por lote",
+      per_piece: "por peça",
+      per_sheet: "por folha",
+      per_kit: "por kit",
+      per_meter: "por metro",
+      per_m2: "por m²",
+    };
+    lines.push({
+      label: `Acabamento: ${line.finishing.name}`,
+      detail: `${modeLabel[mode]} · ${units} × ${multiplier} × ${formatMoney(unitCost)}`,
+      amount: cost,
+    });
+  }
+
+  const service = input.service ? num(input.service.baseCost) : 0;
+  if (input.service && service > 0) {
+    lines.push({
+      label: `Serviço: ${input.service.name}`,
+      detail: "Custo fixo do lote",
+      amount: service,
+    });
+  }
+
+  const directCost = printing + materials + finishing + service;
+  const operationalRate = Math.max(num(input.operationalRate), 0);
+  const taxRate = Math.max(num(input.taxRate), 0);
+  const paymentRate = Math.max(num(input.paymentRate), 0);
+  const profitRate = Math.max(num(input.profitRate), 0);
+  const rateTotal = operationalRate + taxRate + paymentRate + profitRate;
+  const divisor = 1 - rateTotal;
+  if (divisor <= 0.01) {
+    return {
+      lines,
+      requestedQuantity: qty,
+      baseSheets,
+      sheetsByWaste,
+      sheetsBySetup,
+      finalSheets,
+      printCostPerSheet,
+      printing,
+      materials,
+      finishing,
+      service,
+      directCost,
+      operationalAmount: 0,
+      taxAmount: 0,
+      paymentAmount: 0,
+      profitAmount: 0,
+      rateTotal,
+      divisor,
+      finalPrice: 0,
+      unitPrice: 0,
+      valid: false,
+      error: "A soma de operação, imposto, pagamento e lucro precisa ser menor que 99%.",
+    };
+  }
+
+  const rawFinal = directCost / divisor;
+  const finalPrice = roundCommercialPrice(rawFinal, input.roundingStep);
+  return {
+    lines,
+    requestedQuantity: qty,
+    baseSheets,
+    sheetsByWaste,
+    sheetsBySetup,
+    finalSheets,
+    printCostPerSheet,
+    printing,
+    materials,
+    finishing,
+    service,
+    directCost,
+    operationalAmount: finalPrice * operationalRate,
+    taxAmount: finalPrice * taxRate,
+    paymentAmount: finalPrice * paymentRate,
+    profitAmount: finalPrice * profitRate,
+    rateTotal,
+    divisor,
+    finalPrice,
+    unitPrice: qty > 0 ? finalPrice / qty : 0,
+    valid: true,
   };
 }
 

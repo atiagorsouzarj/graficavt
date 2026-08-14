@@ -26,6 +26,7 @@ export function FormatModal({
     heightMm: String(Number(initial?.heightMm || 0)),
     areaFactor: String(Number(initial?.areaFactor || (is3D ? 15 : 1))),
     inkCoverage: String(Math.round(Number(initial?.inkCoverage || (is3D ? 1 : 0.3)) * 100)),
+    printCostOverride: String(Number(initial?.printCostOverride || 0)),
     isPhoto: String(initial?.isPhoto ?? false),
   });
   const set = (key: string, value: string) => setF((old) => ({ ...old, [key]: value }));
@@ -60,9 +61,10 @@ export function FormatModal({
           <>
             <Field label="Largura (mm)"><Input type="number" step="0.1" value={f.widthMm} onChange={(e) => set("widthMm", e.target.value)} /></Field>
             <Field label="Altura (mm)"><Input type="number" step="0.1" value={f.heightMm} onChange={(e) => set("heightMm", e.target.value)} /></Field>
-            <Field label="Fator de área" hint="A4=1 · A3=2 · A3+=2,55"><Input type="number" step="0.01" value={f.areaFactor} onChange={(e) => set("areaFactor", e.target.value)} /></Field>
-            <Field label="Cobertura de tinta (%)"><Input type="number" min="0" max="100" step="1" value={f.inkCoverage} onChange={(e) => set("inkCoverage", e.target.value)} /></Field>
-            <Field label="É fotográfico?" className="sm:col-span-2">
+             <Field label="Fator de área" hint="A4=1 · A3=2 · A3+=2,55"><Input type="number" step="0.01" value={f.areaFactor} onChange={(e) => set("areaFactor", e.target.value)} /></Field>
+             <Field label="Cobertura de tinta (%)"><Input type="number" min="0" max="100" step="1" value={f.inkCoverage} onChange={(e) => set("inkCoverage", e.target.value)} /></Field>
+             <Field label="Custo manual de impressão / face (R$)" className="sm:col-span-2" hint="0 = usa custo técnico de toner/tinta. Preencha para usar a matriz comercial de impressão."><Input type="number" step="0.0001" value={f.printCostOverride} onChange={(e) => set("printCostOverride", e.target.value)} /></Field>
+             <Field label="É fotográfico?" className="sm:col-span-2">
               <Select value={f.isPhoto} onChange={(e) => set("isPhoto", e.target.value)}>
                 <option value="false">Não</option><option value="true">Sim — normalmente 100% de cobertura</option>
               </Select>

@@ -29,10 +29,14 @@ const MOTOR = [
 ] as const;
 
 const ACTIONS = [
-  { href: "/produtos/new", icon: "🏷️", label: "Novo Produto", desc: "Calculadora de custo" },
+  { href: "/crm", icon: "🎯", label: "Pipeline CRM", desc: "Leads e oportunidades" },
   { href: "/orcamentos/new", icon: "📋", label: "Novo Orçamento", desc: "Gerar OS / PDF" },
+  { href: "/pedidos", icon: "📦", label: "Pedidos & OS", desc: "Executar produção" },
+  { href: "/agenda-producao", icon: "🗓️", label: "Agenda", desc: "Capacidade da produção" },
+  { href: "/entregas", icon: "🚚", label: "Entregas", desc: "Retirada e logística" },
   { href: "/pdv", icon: "🧾", label: "Abrir PDV", desc: "Frente de caixa" },
   { href: "/clientes", icon: "👥", label: "Novo Cliente", desc: "PF / PJ" },
+  { href: "/compras", icon: "🛒", label: "Compras", desc: "Repor estoque" },
 ];
 
 export default async function Dashboard() {

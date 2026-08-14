@@ -98,6 +98,44 @@ export const customers = pgTable("customers", {
 });
 
 /* ------------------------------------------------------------------ */
+/*  CRM COMERCIAL — PIPELINE, LEADS E HISTÓRICO DE RELACIONAMENTO      */
+/* ------------------------------------------------------------------ */
+export const crmLeads = pgTable("crm_leads", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  title: text("title").notNull(),
+  column: text("column").default("novo").notNull(), // novo, qualificacao, orcamento, negociacao, ganho, perdido
+  source: text("source").default("manual"), // balcao, whatsapp, instagram, site, indicacao...
+  owner: text("owner"),
+  expectedValue: numeric("expected_value", { precision: 12, scale: 2 }).default("0"),
+  probability: integer("probability").default(10),
+  nextActionAt: timestamp("next_action_at", { mode: "date" }),
+  lastContactAt: timestamp("last_contact_at", { mode: "date" }),
+  notes: text("notes"),
+  lostReason: text("lost_reason"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const crmActivities = pgTable("crm_activities", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "cascade",
+  }),
+  leadId: integer("lead_id").references(() => crmLeads.id, {
+    onDelete: "cascade",
+  }),
+  type: text("type").default("nota").notNull(), // nota, ligacao, whatsapp, email, reuniao, tarefa
+  title: text("title").notNull(),
+  description: text("description"),
+  dueAt: timestamp("due_at", { mode: "date" }),
+  completedAt: timestamp("completed_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
 /*  PRICING ENGINE - PRINTER CATEGORIES                               */
 /*  The category holds the pricing logic (cost per page)              */
 /* ------------------------------------------------------------------ */
@@ -116,6 +154,8 @@ export const printerCategories = pgTable("printer_categories", {
   measureMode: text("measure_mode").default("pagina"),
   /** unidade exibida na UI: folha, etiqueta, grama */
   unitLabel: text("unit_label").default("folha"),
+  /** cobertura de referência usada nos rendimentos da categoria (Laser normalmente 5%) */
+  referenceCoverage: numeric("reference_coverage", { precision: 6, scale: 4 }).default("0.05"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
@@ -131,6 +171,8 @@ export const printerConsumables = pgTable("printer_consumables", {
   unitCost: numeric("unit_cost", { precision: 12, scale: 4 }).default("0"),
   yieldPages: integer("yield_pages").default(0), // rendimento em impressoes
   appliesTo: consumableTypeEnum("applies_to").default("both"),
+  /** colorant escala pela cobertura; mechanical permanece custo técnico por folha */
+  costRole: text("cost_role").default("colorant"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
@@ -181,6 +223,8 @@ export const printFormats = pgTable("print_formats", {
   areaFactor: numeric("area_factor", { precision: 8, scale: 4 }).default("1"),
   /** cobertura de tinta (1 = 100%, 0.05 = texto 5%) */
   inkCoverage: numeric("ink_coverage", { precision: 6, scale: 4 }).default("0.05"),
+  /** custo comercial interno da impressão por folha; 0 usa cálculo técnico de consumíveis */
+  printCostOverride: numeric("print_cost_override", { precision: 12, scale: 4 }).default("0"),
   isPhoto: boolean("is_photo").default(false),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
@@ -228,6 +272,51 @@ export const stockMovements = pgTable("stock_movements", {
   reference: text("reference"), // número da venda/pedido/nota
   notes: text("notes"),
   automatic: boolean("automatic").default(false), // gerado pelo sistema (venda/produção)
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/*  FORNECEDORES E COMPRAS                                             */
+/* ------------------------------------------------------------------ */
+export const suppliers = pgTable("suppliers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  tradeName: text("trade_name"),
+  document: text("document"),
+  contactName: text("contact_name"),
+  email: text("email"),
+  phone: text("phone"),
+  whatsapp: text("whatsapp"),
+  website: text("website"),
+  cep: text("cep"),
+  street: text("street"),
+  number: text("number"),
+  complement: text("complement"),
+  district: text("district"),
+  city: text("city"),
+  state: text("state"),
+  paymentTerms: text("payment_terms"),
+  leadTimeDays: integer("lead_time_days").default(0),
+  notes: text("notes"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const purchases = pgTable("purchases", {
+  id: serial("id").primaryKey(),
+  number: text("number").notNull().unique(),
+  supplierId: integer("supplier_id").references(() => suppliers.id, {
+    onDelete: "set null",
+  }),
+  status: text("status").default("rascunho").notNull(), // rascunho, pedido, parcial, recebido, cancelado
+  items: jsonb("items").notNull(),
+  subtotal: numeric("subtotal", { precision: 12, scale: 4 }).default("0"),
+  freight: numeric("freight", { precision: 12, scale: 4 }).default("0"),
+  discount: numeric("discount", { precision: 12, scale: 4 }).default("0"),
+  total: numeric("total", { precision: 12, scale: 4 }).default("0"),
+  expectedDate: date("expected_date", { mode: "string" }),
+  receivedAt: timestamp("received_at", { mode: "date" }),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
@@ -316,6 +405,9 @@ export const products = pgTable("products", {
     () => printerCategories.id,
     { onDelete: "set null" }
   ),
+  printFormatId: integer("print_format_id").references(() => printFormats.id, {
+    onDelete: "set null",
+  }),
   colorMode: colorModeEnum("color_mode").default("mono"),
   pagesPerUnit: numeric("pages_per_unit", { precision: 10, scale: 3 }).default("1"),
   copies: numeric("copies", { precision: 10, scale: 3 }).default("1"),
@@ -328,7 +420,17 @@ export const products = pgTable("products", {
   baseServiceId: integer("base_service_id").references(() => services.id, {
     onDelete: "set null",
   }),
-  // precificacao
+  // receita de produção por tiragem
+  calculationMode: text("calculation_mode").default("unit").notNull(), // unit, batch
+  defaultQuantity: numeric("default_quantity", { precision: 12, scale: 3 }).default("1"),
+  piecesPerSheet: numeric("pieces_per_sheet", { precision: 12, scale: 3 }).default("1"),
+  printSides: integer("print_sides").default(1),
+  wastePercent: numeric("waste_percent", { precision: 6, scale: 4 }).default("0"),
+  setupSheets: integer("setup_sheets").default(0),
+  minOrderQty: numeric("min_order_qty", { precision: 12, scale: 3 }).default("1"),
+  operationalRate: numeric("operational_rate", { precision: 6, scale: 4 }).default("0"),
+  roundingStep: numeric("rounding_step", { precision: 10, scale: 2 }).default("0.01"),
+  // precificacao — em batch, margin representa lucro alvo no divisor de markup
   margin: numeric("margin", { precision: 6, scale: 4 }).default("0.4"),
   costSnapshot: numeric("cost_snapshot", { precision: 12, scale: 4 }).default("0"),
   sellPrice: numeric("sell_price", { precision: 12, scale: 4 }).default("0"),
@@ -352,7 +454,12 @@ export const productFinishings = pgTable("product_finishings", {
   finishingId: integer("finishing_id")
     .notNull()
     .references(() => finishingItems.id, { onDelete: "cascade" }),
+  /** multiplicador do acabamento na regra escolhida */
   quantity: numeric("quantity", { precision: 10, scale: 3 }).default("1"),
+  /** fixed_lot, per_piece, per_sheet, per_kit, per_meter, per_m2 */
+  chargeMode: text("charge_mode").default("per_piece"),
+  /** usado somente em per_kit: ex. embalagem a cada 10 unidades */
+  batchSize: numeric("batch_size", { precision: 10, scale: 3 }).default("1"),
 });
 
 /* product -> extra materials (N:N) */
@@ -413,6 +520,51 @@ export const quoteItems = pgTable("quote_items", {
 });
 
 /* ------------------------------------------------------------------ */
+/*  PEDIDOS / ORDEM DE PRODUÇÃO                                       */
+/*  Orçamento aprovado é convertido aqui, preservando o snapshot.     */
+/* ------------------------------------------------------------------ */
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  number: text("number").notNull().unique(),
+  quoteId: integer("quote_id").references(() => quotes.id, {
+    onDelete: "set null",
+  }),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  status: text("status").default("aberto").notNull(), // aberto, confirmado, concluido, cancelado
+  productionStatus: text("production_status").default("aguardando").notNull(),
+  artStatus: text("art_status").default("nao_enviada").notNull(),
+  deliveryStatus: text("delivery_status").default("a_definir").notNull(),
+  priority: text("priority").default("normal"),
+  dueDate: date("due_date", { mode: "string" }),
+  items: jsonb("items").notNull(),
+  subtotal: numeric("subtotal", { precision: 12, scale: 4 }).default("0"),
+  discount: numeric("discount", { precision: 12, scale: 4 }).default("0"),
+  taxes: numeric("taxes", { precision: 12, scale: 4 }).default("0"),
+  total: numeric("total", { precision: 12, scale: 4 }).default("0"),
+  paymentMethod: text("payment_method"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const artApprovals = pgTable("art_approvals", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url"),
+  version: integer("version").default(1),
+  status: text("status").default("pendente").notNull(), // pendente, aprovado, revisao, recusado
+  clientComment: text("client_comment"),
+  internalNote: text("internal_note"),
+  approvedAt: timestamp("approved_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
 /*  PDV - SALES (Cupom Fiscal)                                        */
 /* ------------------------------------------------------------------ */
 export const saleTypeEnum = pgEnum("sale_type", ["produto", "servico", "mixto"]);
@@ -454,6 +606,49 @@ export const kanbanCards = pgTable("kanban_cards", {
   order: integer("order").default(0),
   priority: text("priority").default("normal"), // baixa, normal, alta, urgente
   dueDate: date("due_date", { mode: "string" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/*  AGENDA / CAPACIDADE DE PRODUÇÃO                                    */
+/* ------------------------------------------------------------------ */
+export const productionSchedules = pgTable("production_schedules", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").references(() => orders.id, {
+    onDelete: "cascade",
+  }),
+  printerId: integer("printer_id").references(() => printers.id, {
+    onDelete: "set null",
+  }),
+  title: text("title").notNull(),
+  scheduledDate: date("scheduled_date", { mode: "string" }).notNull(),
+  startTime: text("start_time").default("08:00"),
+  estimatedMinutes: integer("estimated_minutes").default(30),
+  status: text("status").default("planejado").notNull(), // planejado, em_producao, concluido, bloqueado
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
+/*  ENTREGAS E RETIRADAS                                               */
+/* ------------------------------------------------------------------ */
+export const deliveries = pgTable("deliveries", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").references(() => orders.id, {
+    onDelete: "cascade",
+  }),
+  customerId: integer("customer_id").references(() => customers.id, {
+    onDelete: "set null",
+  }),
+  method: text("method").default("retirada").notNull(), // retirada, motoboy, correios, transportadora
+  status: text("status").default("aguardando").notNull(), // aguardando, separado, em_rota, entregue, devolvido
+  scheduledAt: timestamp("scheduled_at", { mode: "date" }),
+  deliveredAt: timestamp("delivered_at", { mode: "date" }),
+  trackingCode: text("tracking_code"),
+  recipientName: text("recipient_name"),
+  deliveryFee: numeric("delivery_fee", { precision: 12, scale: 2 }).default("0"),
+  addressSnapshot: text("address_snapshot"),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
@@ -502,6 +697,14 @@ export const apiIntegrations = pgTable("api_integrations", {
 });
 
 export type Customer = typeof customers.$inferSelect;
+export type CrmLead = typeof crmLeads.$inferSelect;
+export type CrmActivity = typeof crmActivities.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type ArtApproval = typeof artApprovals.$inferSelect;
+export type Supplier = typeof suppliers.$inferSelect;
+export type Purchase = typeof purchases.$inferSelect;
+export type ProductionSchedule = typeof productionSchedules.$inferSelect;
+export type Delivery = typeof deliveries.$inferSelect;
 export type PrintFormat = typeof printFormats.$inferSelect;
 export type PricingTable = typeof pricingTables.$inferSelect;
 export type ItemCategory = typeof itemCategories.$inferSelect;

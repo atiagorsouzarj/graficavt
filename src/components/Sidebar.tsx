@@ -24,21 +24,37 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Comercial",
+    title: "Comercial & CRM",
     items: [
-      { label: "PDV · Novo pedido", href: "/pdv", icon: "🧾" },
-      { label: "Orçamentos", href: "/orcamentos", icon: "📋" },
-      { label: "Kanban produção", href: "/kanban", icon: "🗂️" },
+      { label: "Pipeline Comercial", href: "/crm", icon: "🎯" },
       { label: "Clientes (CRM)", href: "/clientes", icon: "👥" },
+      { label: "Orçamentos", href: "/orcamentos", icon: "📋" },
+      { label: "PDV · Novo pedido", href: "/pdv", icon: "🧾" },
       { label: "Financeiro", href: "/financeiro", icon: "💰" },
     ],
   },
   {
-    title: "Catálogo & Produção",
+    title: "Operação",
     items: [
-      { label: "Produtos", href: "/produtos", icon: "🏷️" },
+      { label: "Pedidos & OS", href: "/pedidos", icon: "📋" },
+      { label: "Kanban produção", href: "/kanban", icon: "🗂️" },
+      { label: "Agenda de Produção", href: "/agenda-producao", icon: "🗓️" },
+      { label: "Entregas & Retiradas", href: "/entregas", icon: "🚚" },
+    ],
+  },
+  {
+    title: "Compras & Estoque",
+    items: [
+      { label: "Compras", href: "/compras", icon: "🛒" },
+      { label: "Fornecedores", href: "/fornecedores", icon: "🚚" },
       { label: "Materiais / Estoque", href: "/materiais", icon: "📦" },
       { label: "Movimentação de Estoque", href: "/estoque", icon: "🔄" },
+    ],
+  },
+  {
+    title: "Catálogo & Precificação",
+    items: [
+      { label: "Produtos", href: "/produtos", icon: "🏷️" },
       { label: "Impressoras & Tintas", href: "/impressoras", icon: "🖨️" },
       { label: "Tabelas de preços", href: "/tabelas-precos", icon: "📊" },
       { label: "Acabamentos", href: "/acabamentos", icon: "✂️" },
@@ -46,7 +62,7 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Comunicação",
+    title: "Integrações & Sistema",
     items: [
       { label: "Integrações", href: "/api-integracoes", icon: "🔌" },
       { label: "Painel de controle", href: "/configuracoes", icon: "⚙️" },
@@ -116,7 +132,7 @@ export function Sidebar() {
 
       <div className="border-t border-slate-100 px-5 py-3">
         <p className="text-[10px] text-slate-400">
-          GrafCenter <span className="font-semibold text-slate-500">v1.3.0</span>
+          GrafCenter <span className="font-semibold text-slate-500">v1.4.0</span>
         </p>
       </div>
     </>

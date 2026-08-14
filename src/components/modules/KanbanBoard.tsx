@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { mutate } from "@/lib/mutate";
 import { Button, Input, Select, Field, Modal, Badge, PageHeader, Textarea } from "@/components/ui";
 import { SearchCombobox } from "@/components/SearchCombobox";
+import { ClientIdentity } from "@/components/ClientIdentity";
 import { formatDate } from "@/lib/format";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,9 +165,17 @@ export function KanbanBoard({
                         {PRI[c.priority]?.label || c.priority}
                       </Badge>
                     </div>
-                    {c.customerName && (
-                      <p className="mt-1 text-xs text-slate-500">👤 {c.customerName}</p>
-                    )}
+                     {(c.customerId || c.customerName) && (
+                       <ClientIdentity
+                         customer={
+                           customers.find((customer) => customer.id === c.customerId) || {
+                             name: c.customerName,
+                           }
+                         }
+                         variant="inline"
+                         className="mt-2 border-t border-slate-100 pt-2"
+                       />
+                     )}
                     {c.description && (
                       <p className="mt-1 text-xs text-slate-400">{c.description}</p>
                     )}

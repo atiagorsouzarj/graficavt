@@ -15,6 +15,7 @@ import {
   Badge,
 } from "@/components/ui";
 import { SearchCombobox } from "@/components/SearchCombobox";
+import { ClientIdentity } from "@/components/ClientIdentity";
 import { formatMoney, formatDate } from "@/lib/format";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +48,7 @@ export function QuoteEditor({
 }: Props) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [showDoc, setShowDoc] = useState(false);
 
   const [customerId, setCustomerId] = useState(String(quote?.customerId || ""));
@@ -131,6 +133,26 @@ export function QuoteEditor({
     ]);
   }
 
+  async function convertToOrder() {
+    if (!quote?.id) return;
+    setConverting(true);
+    try {
+      const res = await fetch("/api/orders/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Não foi possível criar pedido.");
+      router.push(`/pedidos/${json.order.id}`);
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Erro ao converter orçamento.");
+    } finally {
+      setConverting(false);
+    }
+  }
+
   async function save(gotoDoc = false) {
     setSaving(true);
     try {
@@ -193,7 +215,12 @@ export function QuoteEditor({
             {quote?.number || "Novo Orçamento"}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {quote?.id && status === "aprovado" && (
+            <Button variant="success" onClick={convertToOrder} disabled={converting}>
+              {converting ? "Criando..." : "📋 Criar Pedido / OS"}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => save(true)} disabled={saving}>
             🖨️ Gerar OS / PDF
           </Button>
@@ -217,6 +244,9 @@ export function QuoteEditor({
                   emptyLabel="— Consumidor final —"
                 />
               </Field>
+              {customer && (
+                <ClientIdentity customer={customer} variant="compact" className="col-span-2" />
+              )}
               <Field label="Status">
                 <Select value={status} onChange={(e) => setStatus(e.target.value)}>
                   {["rascunho", "enviado", "aprovado", "recusado", "expirado"].map(
