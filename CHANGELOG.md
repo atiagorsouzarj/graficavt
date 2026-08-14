@@ -6,6 +6,25 @@ Todas as mudanças relevantes do projeto. Formato baseado em
 
 ---
 
+## [1.5.0] — 2026
+
+### ✨ Adicionado
+- **Motor de Tiragem / Kit:** aproveitamento de folha com `ceil()`, perda técnica, setup e bloqueio de folha fracionada.
+- **Markup divisor profissional:** operação + imposto + pagamento + lucro alvo no divisor de preço.
+- Regras de acabamento por lote, peça, folha, kit, metro e m².
+- Matriz de formato com cobertura, custo técnico e custo manual por face.
+- Exemplos práticos cadastrados: **200 Adesivos Vinil A3+ com Plotter** (R$ 120,00) e **50 Caixinhas Milk Fotográficas** (R$ 397,73).
+- Painel de Controle refeito em abas: Empresa, Endereço, Fiscal & NF, Tributação & Preço e Certificado & Integração.
+- Campos preparados para NF-e, NFC-e e NFS-e: séries, numeração, regime, IE/IM, CNAE, CFOP, NCM, CST/CSOSN, certificado e provedor.
+- Centro de notificações no topo com atualização automática: estoque crítico, artes pendentes, entregas e ações de CRM.
+- Documentação de tiragem, comunicação em produção e auditoria de APIs/GitHub.
+
+### 🔧 Alterado
+- Consumíveis passam a diferenciar colorantes de peças mecânicas para cobertura não distorcer custos técnicos.
+- Nome, endereço, CNPJ e contatos configurados no novo painel passam a alimentar OS, cupom e portal por retrocompatibilidade.
+
+---
+
 ## [1.4.0] — 2026
 
 ### ✨ Adicionado

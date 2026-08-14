@@ -23,6 +23,20 @@ export const settings = pgTable("settings", {
 });
 
 /* ------------------------------------------------------------------ */
+/*  NOTIFICAÇÕES                                                       */
+/*  Persistentes + alertas operacionais calculados em tempo real       */
+/* ------------------------------------------------------------------ */
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  type: text("type").default("info").notNull(), // info, success, warning, danger
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  readAt: timestamp("read_at", { mode: "date" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+/* ------------------------------------------------------------------ */
 /*  CATEGORIAS GENÉRICAS (reutilizáveis por módulo)                    */
 /*  Produtos, Materiais, Serviços, Acabamentos, Tabelas de Preços      */
 /*  Todas editáveis pelo usuário — adicionar/editar/remover livremente*/
